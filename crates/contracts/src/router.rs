@@ -8,18 +8,28 @@ use crate::storage::{
 use crate::types::{QuoteResult, Route, SwapParams, SwapResult, TTLStatus};
 use soroban_sdk::{contract, contractimpl, symbol_short, vec, Address, Env, IntoVal, Symbol};
 
-const CONTRACT_VERSION: u32 = 2;
-
 #[contract]
 pub struct StellarRoute;
 
 #[contractimpl]
 impl StellarRoute {
+    /// Initialize the contract.
+    ///
+    /// When `signers` is non-empty the contract starts in multi-sig mode
+    /// immediately. Otherwise it starts in single-admin mode and can be
+    /// migrated later via `migrate_to_multisig`.
     pub fn initialize(
         e: Env,
         admin: Address,
         fee_rate: u32,
         fee_to: Address,
+        // ── Optional multi-sig bootstrap ─────────────────────────────────────
+        signers: Option<Vec<Address>>,
+        threshold: Option<u32>,
+        proposal_ttl: Option<u64>,
+        guardian: Option<Address>,
+        // ── Optional initial WASM hash for version tracking ──────────────────
+        initial_wasm_hash: Option<BytesN<32>>,
     ) -> Result<(), ContractError> {
         if e.storage().instance().has(&StorageKey::Admin) {
             return Err(ContractError::AlreadyInitialized);
@@ -40,7 +50,24 @@ impl StellarRoute {
         Ok(())
     }
 
+    /// Switch a single-admin contract to multi-sig governance (one-way).
+    pub fn migrate_to_multisig(
+        e: Env,
+        admin: Address,
+        signers: Vec<Address>,
+        threshold: u32,
+        proposal_ttl: u64,
+        guardian: Option<Address>,
+    ) -> Result<(), ContractError> {
+        governance::migrate_to_multisig(&e, admin, signers, threshold, proposal_ttl, guardian)
+    }
+
+    // ── Single-admin operations (rejected in multi-sig mode) ──────────────────
+
     pub fn set_admin(e: Env, new_admin: Address) -> Result<(), ContractError> {
+        if storage::is_multisig(&e) {
+            return Err(ContractError::UseGovernance);
+        }
         let admin = storage::get_admin(&e);
         admin.require_auth();
 
@@ -51,6 +78,9 @@ impl StellarRoute {
     }
 
     pub fn register_pool(e: Env, pool: Address) -> Result<(), ContractError> {
+        if storage::is_multisig(&e) {
+            return Err(ContractError::UseGovernance);
+        }
         storage::get_admin(&e).require_auth();
 
         let key = StorageKey::SupportedPool(pool.clone());
@@ -71,6 +101,9 @@ impl StellarRoute {
     }
 
     pub fn pause(e: Env) -> Result<(), ContractError> {
+        if storage::is_multisig(&e) {
+            return Err(ContractError::UseGovernance);
+        }
         storage::get_admin(&e).require_auth();
         e.storage().instance().set(&StorageKey::Paused, &true);
         events::paused(&e);
@@ -79,6 +112,9 @@ impl StellarRoute {
     }
 
     pub fn unpause(e: Env) -> Result<(), ContractError> {
+        if storage::is_multisig(&e) {
+            return Err(ContractError::UseGovernance);
+        }
         storage::get_admin(&e).require_auth();
         e.storage().instance().set(&StorageKey::Paused, &false);
         events::unpaused(&e);
@@ -86,11 +122,142 @@ impl StellarRoute {
         Ok(())
     }
 
-    // --- Read-only getters for deployment verification and monitoring ---
+    // ── Multi-sig governance entrypoints ──────────────────────────────────────
 
-    pub fn version(_e: Env) -> u32 {
-        CONTRACT_VERSION
+    /// Create a governance proposal. Returns the proposal ID.
+    pub fn propose(e: Env, signer: Address, action: ProposalAction) -> Result<u64, ContractError> {
+        if !storage::is_multisig(&e) {
+            return Err(ContractError::NotMultiSig);
+        }
+        governance::propose(&e, signer, action)
     }
+
+    /// Approve a proposal. Auto-executes when threshold is reached.
+    pub fn approve_proposal(
+        e: Env,
+        signer: Address,
+        proposal_id: u64,
+    ) -> Result<(), ContractError> {
+        if !storage::is_multisig(&e) {
+            return Err(ContractError::NotMultiSig);
+        }
+        governance::approve(&e, signer, proposal_id)
+    }
+
+    /// Manually execute a proposal once threshold has been met.
+    pub fn execute_proposal(e: Env, proposal_id: u64) -> Result<(), ContractError> {
+        if !storage::is_multisig(&e) {
+            return Err(ContractError::NotMultiSig);
+        }
+        governance::execute_proposal(&e, proposal_id)
+    }
+
+    /// Cancel a proposal (proposer or any signer).
+    pub fn cancel_proposal(e: Env, signer: Address, proposal_id: u64) -> Result<(), ContractError> {
+        if !storage::is_multisig(&e) {
+            return Err(ContractError::NotMultiSig);
+        }
+        governance::cancel(&e, signer, proposal_id)
+    }
+
+    /// Emergency pause callable by the guardian only (no multi-sig delay).
+    pub fn guardian_pause(e: Env, guardian: Address) -> Result<(), ContractError> {
+        governance::guardian_pause(&e, guardian)
+    }
+
+    /// Read-only: return the governance config.
+    pub fn get_governance_config(e: Env) -> Result<GovernanceConfig, ContractError> {
+        governance::get_governance_config(&e)
+    }
+
+    /// Read-only: return a proposal by ID.
+    pub fn get_proposal(e: Env, proposal_id: u64) -> Result<Proposal, ContractError> {
+        governance::get_proposal(&e, proposal_id)
+    }
+
+    // ── Upgrade entrypoints ───────────────────────────────────────────────────
+
+    /// Propose a time-locked upgrade (single-admin mode only).
+    pub fn propose_upgrade(
+        e: Env,
+        admin: Address,
+        new_wasm_hash: BytesN<32>,
+        execute_after: u64,
+    ) -> Result<(), ContractError> {
+        upgrade::propose_upgrade(&e, admin, new_wasm_hash, execute_after)
+    }
+
+    /// Execute a pending upgrade after the time-lock has elapsed.
+    pub fn execute_upgrade(e: Env) -> Result<(), ContractError> {
+        upgrade::execute_upgrade(&e)
+    }
+
+    /// Cancel a pending upgrade (proposer only).
+    pub fn cancel_upgrade(e: Env, admin: Address) -> Result<(), ContractError> {
+        upgrade::cancel_upgrade(&e, admin)
+    }
+
+    /// Return the current contract version.
+    pub fn get_version(e: Env) -> ContractVersion {
+        upgrade::get_version_for_query(&e)
+    }
+
+    // ── Token allowlist entrypoints ─────────────────────────────────────────────
+
+    /// Add a single token to the allowlist (single-admin mode).
+    pub fn add_token(e: Env, caller: Address, info: TokenInfo) -> Result<(), ContractError> {
+        tokens::add_token(&e, caller, info)
+    }
+
+    /// Remove a token from the allowlist (single-admin mode).
+    pub fn remove_token(
+        e: Env,
+        caller: Address,
+        asset: crate::types::Asset,
+    ) -> Result<(), ContractError> {
+        tokens::remove_token(&e, caller, asset)
+    }
+
+    /// Update token metadata without re-adding (single-admin mode).
+    pub fn update_token(
+        e: Env,
+        caller: Address,
+        asset: crate::types::Asset,
+        updated: TokenInfo,
+    ) -> Result<(), ContractError> {
+        tokens::update_token(&e, caller, asset, updated)
+    }
+
+    /// Batch-add up to 10 tokens in a single call (single-admin mode).
+    pub fn add_tokens_batch(
+        e: Env,
+        caller: Address,
+        token_list: Vec<TokenInfo>,
+    ) -> Result<(), ContractError> {
+        tokens::add_tokens_batch(&e, caller, token_list)
+    }
+
+    /// Read-only: return `true` if the asset is on the allowlist.
+    pub fn is_token_allowed(e: Env, asset: crate::types::Asset) -> bool {
+        tokens::is_token_allowed(&e, &asset)
+    }
+
+    /// Read-only: return token metadata.
+    pub fn get_token_info(e: Env, asset: crate::types::Asset) -> Option<TokenInfo> {
+        tokens::get_token_info(&e, &asset)
+    }
+
+    /// Read-only: total count of active allowlisted tokens.
+    pub fn get_token_count(e: Env) -> u32 {
+        tokens::get_token_count(&e)
+    }
+
+    /// Read-only: all active assets in a given category.
+    pub fn get_tokens_by_category(e: Env, category: TokenCategory) -> Vec<crate::types::Asset> {
+        tokens::get_tokens_by_category(&e, category)
+    }
+
+    // ── Read-only getters ─────────────────────────────────────────────────────
 
     pub fn get_admin(e: Env) -> Result<Address, ContractError> {
         if !storage::is_initialized(&e) {
@@ -128,11 +295,7 @@ impl StellarRoute {
         Ok(())
     }
 
-    pub fn set_whitelist(
-        e: Env,
-        address: Address,
-        whitelisted: bool,
-    ) -> Result<(), ContractError> {
+    pub fn set_whitelist(e: Env, address: Address, whitelisted: bool) -> Result<(), ContractError> {
         storage::get_admin(&e).require_auth();
         storage::set_whitelisted(&e, &address, whitelisted);
         extend_instance_ttl(&e);
@@ -182,7 +345,12 @@ impl StellarRoute {
             expires_at,
         };
 
-        storage::set_commitment(&e, &commitment_hash, &commitment, mev_config.commit_window_ledgers);
+        storage::set_commitment(
+            &e,
+            &commitment_hash,
+            &commitment,
+            mev_config.commit_window_ledgers,
+        );
 
         events::commitment_created(&e, sender, commitment_hash, deposit_amount);
         extend_instance_ttl(&e);
@@ -205,7 +373,7 @@ impl StellarRoute {
         payload.append(&Bytes::from_slice(&e, &params.deadline.to_be_bytes()));
         let salt_bytes: Bytes = salt.into();
         payload.append(&salt_bytes);
-        let computed_hash = e.crypto().sha256(&payload);
+        let computed_hash: BytesN<32> = e.crypto().sha256(&payload).into();
 
         // Verify commitment exists
         let commitment =
@@ -244,10 +412,62 @@ impl StellarRoute {
         Ok(())
     }
 
+    /// Estimate resource consumption for a swap operation
+    pub fn estimate_resources(
+        _e: Env,
+        amount_in: i128,
+        route: Route,
+    ) -> Result<ResourceEstimate, ContractError> {
+        if amount_in <= 0 || route.hops.is_empty() {
+            return Err(ContractError::InvalidRoute);
+        }
+
+        let num_hops = route.hops.len() as u32;
+        if num_hops > MAX_HOPS {
+            return Err(ContractError::InvalidRoute);
+        }
+
+        // Estimate CPU: base + per-hop + CCI overhead
+        let estimated_cpu = (BASE_CPU_PER_HOP * num_hops as u64) + (CCI_OVERHEAD * num_hops as u64);
+
+        // Storage reads: 1 instance config + num_hops pool checks + 1 nonce
+        let storage_reads = 1 + num_hops + 1;
+
+        // Storage writes: 1 nonce update
+        let storage_writes = 1;
+
+        // Events: 1 swap event
+        let events = 1;
+
+        // Will succeed if under 100M instructions
+        let will_succeed = estimated_cpu < 100_000_000;
+
+        Ok(ResourceEstimate {
+            estimated_cpu,
+            storage_reads,
+            storage_writes,
+            events,
+            will_succeed,
+        })
+    }
+
     /// Public entry point for users to get quotes
     pub fn get_quote(e: Env, amount_in: i128, route: Route) -> Result<QuoteResult, ContractError> {
-        if amount_in <= 0 || route.hops.is_empty() || route.hops.len() > 4 {
+        if amount_in <= 0 || route.hops.is_empty() || route.hops.len() > MAX_HOPS {
             return Err(ContractError::InvalidRoute);
+        }
+        // Validate every asset in the route is on the allowlist.
+        tokens::validate_route_assets(&e, &route)?;
+
+        // Pre-allocate with known capacity to avoid reallocation
+        let mut pools = Vec::new(&e);
+        for i in 0..route.hops.len() {
+            pools.push_back(route.hops.get(i).unwrap().pool.clone());
+        }
+
+        // Batch check all pools at once
+        if !batch_check_pools(&e, &pools) {
+            return Err(ContractError::PoolNotSupported);
         }
 
         let mut current_amount = amount_in;
@@ -255,9 +475,6 @@ impl StellarRoute {
 
         for i in 0..route.hops.len() {
             let hop = route.hops.get(i).unwrap();
-            if !is_supported_pool(&e, hop.pool.clone()) {
-                return Err(ContractError::PoolNotSupported);
-            }
 
             let call_result = e.try_invoke_contract::<i128, soroban_sdk::Error>(
                 &hop.pool,
@@ -297,6 +514,8 @@ impl StellarRoute {
     ) -> Result<SwapResult, ContractError> {
         sender.require_auth();
         StellarRoute::require_not_paused(&e)?;
+        // Validate every asset in the route is on the allowlist.
+        tokens::validate_route_assets(&e, &params.route)?;
 
         // Check commit-reveal requirement for large swaps
         if let Some(mev_config) = storage::get_mev_config(&e) {
@@ -337,9 +556,7 @@ impl StellarRoute {
                 let window_start = storage::get_account_swap_window_start(e, sender);
                 let swap_count = storage::get_account_swap_count(e, sender);
 
-                if window_start > 0
-                    && current_ledger < window_start + mev_config.rate_limit_window
-                {
+                if swap_count > 0 && current_ledger < window_start + mev_config.rate_limit_window {
                     // Still within the window
                     if swap_count >= mev_config.max_swaps_per_window {
                         events::rate_limit_hit(
@@ -520,6 +737,7 @@ impl StellarRoute {
         // Check TTL health and emit warning if needed
         Self::check_ttl_health(&e);
 
+        // Emit compact event (use IDs instead of full structs where possible)
         events::swap_executed(
             e,
             sender.clone(),

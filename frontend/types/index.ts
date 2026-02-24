@@ -1,16 +1,8 @@
-// ---------------------------------------------------------------------------
-// Asset types — mirrors Rust AssetInfo in crates/api/src/models/response.rs
-// ---------------------------------------------------------------------------
-
 export interface Asset {
   asset_type: 'native' | 'credit_alphanum4' | 'credit_alphanum12';
   asset_code?: string;
   asset_issuer?: string;
 }
-
-// ---------------------------------------------------------------------------
-// Trading pairs — mirrors Rust TradingPair
-// ---------------------------------------------------------------------------
 
 export interface TradingPair {
   /** Human-readable base asset code, e.g. "XLM" */
@@ -30,10 +22,6 @@ export interface PairsResponse {
   total: number;
 }
 
-// ---------------------------------------------------------------------------
-// Orderbook — mirrors Rust OrderbookResponse / OrderbookLevel
-// ---------------------------------------------------------------------------
-
 export interface OrderbookEntry {
   price: string;
   amount: string;
@@ -48,10 +36,6 @@ export interface Orderbook {
   /** Unix timestamp (seconds) */
   timestamp: number;
 }
-
-// ---------------------------------------------------------------------------
-// Quote — mirrors Rust QuoteResponse / PathStep
-// ---------------------------------------------------------------------------
 
 export type QuoteType = 'sell' | 'buy';
 
@@ -75,10 +59,6 @@ export interface PriceQuote {
   timestamp: number;
 }
 
-// ---------------------------------------------------------------------------
-// Health — mirrors Rust HealthResponse
-// ---------------------------------------------------------------------------
-
 export interface HealthStatus {
   status: 'healthy' | 'unhealthy';
   version: string;
@@ -87,13 +67,10 @@ export interface HealthStatus {
   components: Record<string, string>;
 }
 
-// ---------------------------------------------------------------------------
-// Error — mirrors Rust ErrorResponse
-// ---------------------------------------------------------------------------
-
 export interface ApiError {
   error: string;
   message: string;
   details?: unknown;
 }
 
+export * from './route';

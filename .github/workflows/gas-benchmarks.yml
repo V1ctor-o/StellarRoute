@@ -1,0 +1,142 @@
+name: Gas Benchmarks
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'crates/contracts/**'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'crates/contracts/**'
+
+jobs:
+  benchmark:
+    name: Run Gas Benchmarks
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo index
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache target directory
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-target-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install Soroban CLI
+        run: |
+          cargo install --locked soroban-cli --features opt || true
+
+      - name: Run benchmark tests
+        run: |
+          cd crates/contracts
+          cargo test bench_ --release -- --nocapture | tee benchmark_results.txt
+
+      - name: Check benchmark thresholds
+        run: |
+          cd crates/contracts
+          # Fail if any benchmark exceeds limits
+          if grep -q "assertion.*failed" benchmark_results.txt; then
+            echo "❌ Benchmark thresholds exceeded!"
+            exit 1
+          fi
+          echo "✅ All benchmarks passed"
+
+      - name: Build WASM
+        run: |
+          cd crates/contracts
+          cargo build --release --target wasm32-unknown-unknown
+
+      - name: Install wasm-opt
+        run: |
+          wget https://github.com/WebAssembly/binaryen/releases/download/version_116/binaryen-version_116-x86_64-linux.tar.gz
+          tar -xzf binaryen-version_116-x86_64-linux.tar.gz
+          sudo cp binaryen-version_116/bin/wasm-opt /usr/local/bin/
+
+      - name: Optimize WASM
+        run: |
+          cd crates/contracts
+          wasm-opt -Oz target/wasm32-unknown-unknown/release/stellarroute_contracts.wasm \
+            -o optimized.wasm
+
+      - name: Check WASM size
+        run: |
+          cd crates/contracts
+          SIZE=$(stat -c%s optimized.wasm)
+          SIZE_KB=$((SIZE / 1024))
+          echo "📦 Optimized WASM size: ${SIZE_KB}KB"
+          
+          if [ $SIZE -gt 57344 ]; then
+            echo "❌ WASM size ${SIZE_KB}KB exceeds 56KB limit!"
+            exit 1
+          fi
+          
+          echo "✅ WASM size is within limits (${SIZE_KB}KB / 56KB)"
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: crates/contracts/benchmark_results.txt
+
+      - name: Upload optimized WASM
+        uses: actions/upload-artifact@v4
+        with:
+          name: optimized-wasm
+          path: crates/contracts/optimized.wasm
+
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const results = fs.readFileSync('crates/contracts/benchmark_results.txt', 'utf8');
+            const size = fs.statSync('crates/contracts/optimized.wasm').size;
+            const sizeKB = Math.round(size / 1024);
+            
+            const body = `## 📊 Gas Benchmark Results
+            
+            ### WASM Size
+            - **Optimized size**: ${sizeKB}KB / 56KB
+            - **Status**: ${sizeKB < 56 ? '✅ Pass' : '❌ Fail'}
+            
+            ### Benchmark Summary
+            \`\`\`
+            ${results.split('\n').filter(l => l.includes('CPU cost')).join('\n')}
+            \`\`\`
+            
+            <details>
+            <summary>Full benchmark output</summary>
+            
+            \`\`\`
+            ${results}
+            \`\`\`
+            </details>
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });

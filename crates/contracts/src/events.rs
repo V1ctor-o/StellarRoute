@@ -1,4 +1,4 @@
-use crate::types::Route;
+use crate::types::{ProposalAction, Route};
 use soroban_sdk::{symbol_short, Address, BytesN, Env, Symbol};
 
 pub fn initialized(e: &Env, admin: Address, fee_rate: u32) {

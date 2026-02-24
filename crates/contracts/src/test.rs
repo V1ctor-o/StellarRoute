@@ -100,23 +100,23 @@ use mock_failing::MockFailingPool;
 // ── Test Utilities ────────────────────────────────────────────────────────────
 
 /// Create a fresh Env with all auth mocked — standard for unit tests.
-fn setup_env() -> Env {
+pub(crate) fn setup_env() -> Env {
     let env = Env::default();
     env.mock_all_auths();
     env
 }
 
 /// Deploy and initialise the router. Returns (admin, fee_to, client).
-fn deploy_router(env: &Env) -> (Address, Address, StellarRouteClient<'_>) {
+pub(crate) fn deploy_router(env: &Env) -> (Address, Address, StellarRouteClient<'_>) {
     let admin = Address::generate(env);
     let fee_to = Address::generate(env);
     let id = env.register_contract(None, StellarRoute);
     let client = StellarRouteClient::new(env, &id);
-    client.initialize(&admin, &30_u32, &fee_to); // 0.3 % protocol fee
+    client.initialize(&admin, &30_u32, &fee_to, &None, &None, &None, &None, &None); // 0.3 % protocol fee
     (admin, fee_to, client)
 }
 
-fn deploy_mock_pool(env: &Env) -> Address {
+pub(crate) fn deploy_mock_pool(env: &Env) -> Address {
     env.register_contract(None, MockAmmPool)
 }
 
@@ -124,7 +124,7 @@ fn deploy_failing_pool(env: &Env) -> Address {
     env.register_contract(None, MockFailingPool)
 }
 
-fn make_route(env: &Env, pool: &Address, hops: u32) -> Route {
+pub(crate) fn make_route(env: &Env, pool: &Address, hops: u32) -> Route {
     let mut v = Vec::new(env);
     for _ in 0..hops {
         v.push_back(RouteHop {
@@ -188,7 +188,16 @@ fn test_initialize_success() {
 fn test_initialize_double_returns_error() {
     let env = setup_env();
     let (_, _, client) = deploy_router(&env);
-    let result = client.try_initialize(&Address::generate(&env), &30_u32, &Address::generate(&env));
+    let result = client.try_initialize(
+        &Address::generate(&env),
+        &30_u32,
+        &Address::generate(&env),
+        &None,
+        &None,
+        &None,
+        &None,
+        &None,
+    );
     assert_eq!(result, Err(Ok(ContractError::AlreadyInitialized)));
 }
 
@@ -202,6 +211,11 @@ fn test_initialize_max_valid_fee() {
         &Address::generate(&env),
         &1000_u32,
         &Address::generate(&env),
+        &None,
+        &None,
+        &None,
+        &None,
+        &None,
     );
 }
 
@@ -214,6 +228,11 @@ fn test_initialize_invalid_fee() {
         &Address::generate(&env),
         &1001_u32,
         &Address::generate(&env),
+        &None,
+        &None,
+        &None,
+        &None,
+        &None,
     );
     assert_eq!(result, Err(Ok(ContractError::InvalidAmount)));
 }
@@ -223,7 +242,16 @@ fn test_initialize_zero_fee() {
     let env = setup_env();
     let id = env.register_contract(None, StellarRoute);
     let client = StellarRouteClient::new(&env, &id);
-    client.initialize(&Address::generate(&env), &0_u32, &Address::generate(&env));
+    client.initialize(
+        &Address::generate(&env),
+        &0_u32,
+        &Address::generate(&env),
+        &None,
+        &None,
+        &None,
+        &None,
+        &None,
+    );
 }
 
 // ── Admin Tests ───────────────────────────────────────────────────────────────
@@ -876,7 +904,16 @@ fn property_all_contract_errors_are_reachable() {
     // AlreadyInitialized
     let (_, _, client) = deploy_router(&env);
     assert_eq!(
-        client.try_initialize(&Address::generate(&env), &30_u32, &Address::generate(&env)),
+        client.try_initialize(
+            &Address::generate(&env),
+            &30_u32,
+            &Address::generate(&env),
+            &None,
+            &None,
+            &None,
+            &None,
+            &None
+        ),
         Err(Ok(ContractError::AlreadyInitialized))
     );
 
@@ -887,7 +924,12 @@ fn property_all_contract_errors_are_reachable() {
             c.try_initialize(
                 &Address::generate(&env),
                 &1001_u32,
-                &Address::generate(&env)
+                &Address::generate(&env),
+                &None,
+                &None,
+                &None,
+                &None,
+                &None,
             ),
             Err(Ok(ContractError::InvalidAmount))
         );
@@ -1011,7 +1053,16 @@ fn test_full_lifecycle() {
     // 1. Deploy & initialise
     let id = env.register_contract(None, StellarRoute);
     let client = StellarRouteClient::new(&env, &id);
-    client.initialize(&Address::generate(&env), &30_u32, &Address::generate(&env));
+    client.initialize(
+        &Address::generate(&env),
+        &30_u32,
+        &Address::generate(&env),
+        &None,
+        &None,
+        &None,
+        &None,
+        &None,
+    );
 
     // 2. Register pool
     let pool = deploy_mock_pool(&env);
@@ -1091,7 +1142,9 @@ fn test_version_returns_constant() {
     let env = setup_env();
     let id = env.register_contract(None, StellarRoute);
     let client = StellarRouteClient::new(&env, &id);
-    assert_eq!(client.version(), 2);
+    assert_eq!(client.get_version().major, 1);
+    assert_eq!(client.get_version().minor, 0);
+    assert_eq!(client.get_version().patch, 0);
 }
 
 #[test]
@@ -1131,7 +1184,16 @@ fn test_get_fee_rate_after_init() {
     let env = setup_env();
     let id = env.register_contract(None, StellarRoute);
     let client = StellarRouteClient::new(&env, &id);
-    client.initialize(&Address::generate(&env), &250_u32, &Address::generate(&env));
+    client.initialize(
+        &Address::generate(&env),
+        &250_u32,
+        &Address::generate(&env),
+        &None,
+        &None,
+        &None,
+        &None,
+        &None,
+    );
     assert_eq!(client.get_fee_rate_value(), 250);
 }
 
@@ -1149,7 +1211,16 @@ fn test_get_fee_to_address_after_init() {
     let fee_to = Address::generate(&env);
     let id = env.register_contract(None, StellarRoute);
     let client = StellarRouteClient::new(&env, &id);
-    client.initialize(&Address::generate(&env), &100_u32, &fee_to);
+    client.initialize(
+        &Address::generate(&env),
+        &100_u32,
+        &fee_to,
+        &None,
+        &None,
+        &None,
+        &None,
+        &None,
+    );
     assert_eq!(client.get_fee_to_address(), fee_to);
 }
 

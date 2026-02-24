@@ -1,4 +1,4 @@
-use soroban_sdk::{contracttype, Address, Env, Symbol, Vec};
+use soroban_sdk::{contracttype, Address, BytesN, Env, Symbol, Vec};
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -80,3 +80,108 @@ pub trait LiquidityPoolInterface {
     fn swap_out(e: Env, in_asset: Asset, out_asset: Asset, amount_in: i128) -> i128;
 }
 
+// ─── Token Allowlist ────────────────────────────────────────────────────────────
+
+/// Category classification for allowlisted tokens.
+#[contracttype]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TokenCategory {
+    Native,     // XLM
+    Stablecoin, // USDC, USDT, etc.
+    Wrapped,    // Wrapped assets (wBTC, wETH)
+    Ecosystem,  // Stellar ecosystem tokens
+    Community,  // Community-added tokens
+}
+
+/// On-chain metadata for a whitelisted token.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct TokenInfo {
+    pub asset: Asset,
+    /// Human-readable name, e.g. "USD Coin"
+    pub name: Symbol,
+    /// Asset code, e.g. "USDC"
+    pub code: Symbol,
+    pub decimals: u32,
+    /// True if the issuer account has been verified by governance.
+    pub issuer_verified: bool,
+    pub category: TokenCategory,
+    /// Ledger sequence when the token was added.
+    pub added_at: u64,
+    /// The address that submitted the addition (admin or governance executor).
+    pub added_by: Address,
+}
+
+// ─── Multi-sig Governance ─────────────────────────────────────────────────────
+
+/// Authorized signer set and quorum configuration.
+/// Stored in Instance storage.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct GovernanceConfig {
+    /// Authorized signers (max 10).
+    pub signers: Vec<Address>,
+    /// Required approvals for a proposal to execute (M of N).
+    pub threshold: u32,
+    /// Ledger sequences a proposal stays valid before expiring.
+    pub proposal_ttl: u64,
+}
+
+/// A governance action that can be proposed, approved, and executed.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub enum ProposalAction {
+    SetFeeRate(u32),
+    SetFeeTo(Address),
+    RegisterPool(Address, PoolType),
+    DeregisterPool(Address),
+    Pause,
+    Unpause,
+    Upgrade(BytesN<32>),
+    AddSigner(Address),
+    RemoveSigner(Address),
+    ChangeThreshold(u32),
+}
+
+/// On-chain governance proposal.
+/// Stored in Persistent storage keyed by proposal ID.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct Proposal {
+    pub id: u64,
+    pub action: ProposalAction,
+    pub proposer: Address,
+    /// Addresses that have approved (first entry is always proposer).
+    pub approvals: Vec<Address>,
+    pub created_at: u64,
+    pub expires_at: u64,
+    /// True after the proposal has been executed or cancelled.
+    pub executed: bool,
+}
+
+// ─── Contract Version + Upgrade ──────────────────────────────────────────────
+
+/// Tracks the deployed contract version.
+/// Stored in Instance storage; history snapshots in Persistent storage.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct ContractVersion {
+    pub major: u32,
+    pub minor: u32,
+    pub patch: u32,
+    pub wasm_hash: BytesN<32>,
+    /// Ledger sequence at which this version became active.
+    pub upgraded_at: u64,
+}
+
+/// Pending time-locked upgrade (single-admin mode).
+/// Stored in Instance storage.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct PendingUpgrade {
+    pub new_wasm_hash: BytesN<32>,
+    pub proposed_at: u64,
+    /// Minimum ledger sequence before `execute_upgrade` is callable.
+    pub execute_after: u64,
+    pub proposer: Address,
+}
