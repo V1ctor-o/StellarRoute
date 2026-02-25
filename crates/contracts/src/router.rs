@@ -5,15 +5,14 @@ use crate::storage::{
     increment_nonce, transfer_asset, StorageKey,
 };
 use crate::types::{
-    CommitmentData, ContractVersion, GovernanceConfig, MevConfig, Proposal, ProposalAction,
-    QuoteResult, Route, SwapParams, SwapResult, TokenCategory, TokenInfo,
-    FeeConfig, DistributionRecord, // <--- Added new fee types
+    CommitmentData, ContractVersion, DistributionRecord, FeeConfig, GovernanceConfig, MevConfig,
+    Proposal, ProposalAction, QuoteResult, Route, SwapParams, SwapResult, TokenCategory, TokenInfo,
 };
 use crate::{governance, tokens, upgrade};
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, vec, Address, Bytes, BytesN, Env, IntoVal, Symbol, Vec,
+    contract, contractimpl, contracttype, symbol_short, vec, Address, Bytes, BytesN, Env, IntoVal,
+    Symbol, Vec,
 };
-
 
 const MAX_HOPS: u32 = 4;
 const BASE_CPU_PER_HOP: u64 = 5_000_000;
@@ -115,10 +114,10 @@ impl StellarRoute {
     }
 
     // ── Single-admin Fee Configuration ────────────────────────────────────
-    
+
     pub fn set_fee_distribution_config(e: Env, config: FeeConfig) -> Result<(), ContractError> {
         if storage::is_multisig(&e) {
-            return Err(ContractError::UseGovernance); 
+            return Err(ContractError::UseGovernance);
         }
         storage::get_admin(&e).require_auth();
 
@@ -171,13 +170,14 @@ impl StellarRoute {
             let mut amount = (total_balance * rec.share_bps as i128) / 10000;
 
             // Add rounding dust to treasury or last recipient
-            if (found_treasury && i == treasury_idx) || (!found_treasury && i == num_recipients - 1) {
-                amount = remaining_dust; 
+            if (found_treasury && i == treasury_idx) || (!found_treasury && i == num_recipients - 1)
+            {
+                amount = remaining_dust;
             }
 
             if amount > 0 {
                 remaining_dust -= amount;
-                
+
                 if rec.label == symbol_short!("burn") {
                     match asset {
                         crate::types::Asset::Soroban(ref token_addr) => {
@@ -186,22 +186,38 @@ impl StellarRoute {
                             events::fees_burned(e, asset.clone(), amount);
                         }
                         crate::types::Asset::Issued(ref issuer, _) => {
-                            storage::transfer_asset(e, asset, &e.current_contract_address(), issuer, amount);
+                            storage::transfer_asset(
+                                e,
+                                asset,
+                                &e.current_contract_address(),
+                                issuer,
+                                amount,
+                            );
                             events::fees_burned(e, asset.clone(), amount);
                         }
                         crate::types::Asset::Native => { /* XLM has no standard burn, skip */ }
                     }
                     storage::add_total_burned(e, asset, amount);
                 } else {
-                    storage::transfer_asset(e, asset, &e.current_contract_address(), &rec.address, amount);
+                    storage::transfer_asset(
+                        e,
+                        asset,
+                        &e.current_contract_address(),
+                        &rec.address,
+                        amount,
+                    );
                 }
             }
         }
 
-        storage::push_distribution_history(e, asset, DistributionRecord {
-            timestamp: e.ledger().sequence() as u64,
-            total_distributed: total_balance,
-        });
+        storage::push_distribution_history(
+            e,
+            asset,
+            DistributionRecord {
+                timestamp: e.ledger().sequence() as u64,
+                total_distributed: total_balance,
+            },
+        );
 
         events::fees_distributed(e, asset.clone(), total_balance);
     }

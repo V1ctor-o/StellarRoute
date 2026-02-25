@@ -1,6 +1,6 @@
 use crate::types::{
-    Asset, CommitmentData, ContractVersion, FeeConfig, GovernanceConfig, MevConfig, PendingUpgrade, Proposal,
-    TokenCategory, TokenInfo, DistributionRecord,
+    Asset, CommitmentData, ContractVersion, DistributionRecord, FeeConfig, GovernanceConfig,
+    MevConfig, PendingUpgrade, Proposal, TokenCategory, TokenInfo,
 };
 use soroban_sdk::{contracttype, Address, BytesN, Env, Vec};
 
@@ -392,7 +392,10 @@ pub fn set_fee_config(e: &Env, config: &FeeConfig) {
 }
 
 pub fn get_fee_balance(e: &Env, asset: &Asset) -> i128 {
-    e.storage().persistent().get(&StorageKey::FeeBalance(asset.clone())).unwrap_or(0)
+    e.storage()
+        .persistent()
+        .get(&StorageKey::FeeBalance(asset.clone()))
+        .unwrap_or(0)
 }
 
 pub fn set_fee_balance(e: &Env, asset: &Asset, amount: i128) {
@@ -407,42 +410,61 @@ pub fn add_fee_balance(e: &Env, asset: &Asset, amount: i128) {
 
     let total_key = StorageKey::TotalFeesCollected(asset.clone());
     let current_total: i128 = e.storage().persistent().get(&total_key).unwrap_or(0);
-    e.storage().persistent().set(&total_key, &(current_total + amount));
-    e.storage().persistent().extend_ttl(&total_key, 17280, 17280 * 365);
+    e.storage()
+        .persistent()
+        .set(&total_key, &(current_total + amount));
+    e.storage()
+        .persistent()
+        .extend_ttl(&total_key, 17280, 17280 * 365);
 }
 
 pub fn get_total_fees_collected(e: &Env, asset: &Asset) -> i128 {
-    e.storage().persistent().get(&StorageKey::TotalFeesCollected(asset.clone())).unwrap_or(0)
+    e.storage()
+        .persistent()
+        .get(&StorageKey::TotalFeesCollected(asset.clone()))
+        .unwrap_or(0)
 }
 
 pub fn add_total_burned(e: &Env, asset: &Asset, amount: i128) {
     let key = StorageKey::TotalFeesBurned(asset.clone());
     let current_total: i128 = e.storage().persistent().get(&key).unwrap_or(0);
-    e.storage().persistent().set(&key, &(current_total + amount));
-    e.storage().persistent().extend_ttl(&key, 17280, 17280 * 365);
+    e.storage()
+        .persistent()
+        .set(&key, &(current_total + amount));
+    e.storage()
+        .persistent()
+        .extend_ttl(&key, 17280, 17280 * 365);
 }
 
 pub fn get_total_burned(e: &Env, asset: &Asset) -> i128 {
-    e.storage().persistent().get(&StorageKey::TotalFeesBurned(asset.clone())).unwrap_or(0)
+    e.storage()
+        .persistent()
+        .get(&StorageKey::TotalFeesBurned(asset.clone()))
+        .unwrap_or(0)
 }
 
 pub fn push_distribution_history(e: &Env, asset: &Asset, record: DistributionRecord) {
     let key = StorageKey::DistributionHistory(asset.clone());
-    let mut history: Vec<DistributionRecord> = 
-        e.storage().persistent().get(&key).unwrap_or_else(|| Vec::new(e));
-    
+    let mut history: Vec<DistributionRecord> = e
+        .storage()
+        .persistent()
+        .get(&key)
+        .unwrap_or_else(|| Vec::new(e));
+
     history.push_front(record);
-    
+
     // Keep only the last 10 records to save state size
     if history.len() > 10 {
-        history.pop_back(); 
+        history.pop_back();
     }
-    
+
     e.storage().persistent().set(&key, &history);
     e.storage().persistent().extend_ttl(&key, 17280, 17280 * 30);
 }
 
 pub fn get_distribution_history(e: &Env, asset: &Asset) -> Vec<DistributionRecord> {
-    e.storage().persistent().get(&StorageKey::DistributionHistory(asset.clone()))
+    e.storage()
+        .persistent()
+        .get(&StorageKey::DistributionHistory(asset.clone()))
         .unwrap_or_else(|| Vec::new(e))
 }

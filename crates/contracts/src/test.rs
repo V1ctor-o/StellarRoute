@@ -18,8 +18,8 @@ use super::{
     errors::ContractError,
     router::{StellarRoute, StellarRouteClient},
     types::{
-        Asset, MevConfig, PoolType, ProposalAction, Route, RouteHop, SwapParams,
-        FeeConfig, FeeRecipient,
+        Asset, FeeConfig, FeeRecipient, MevConfig, PoolType, ProposalAction, Route, RouteHop,
+        SwapParams,
     },
 };
 
@@ -2499,19 +2499,23 @@ fn valid_fee_config(env: &Env, r1: Address, r2: Address) -> FeeConfig {
 fn test_fee_config_validation() {
     let env = setup_env();
     let (admin, _, client) = deploy_router(&env);
-    
+
     let mut recipients = Vec::new(&env);
     recipients.push_back(FeeRecipient {
         address: Address::generate(&env),
         share_bps: 9999, // Fails 10000 check
         label: Symbol::new(&env, "treasury"),
     });
-    let config = FeeConfig { recipients, min_distribution: 0, auto_distribute: false };
-    
+    let config = FeeConfig {
+        recipients,
+        min_distribution: 0,
+        auto_distribute: false,
+    };
+
     // Using single-admin mode to set config
     client.set_admin(&admin);
     let result = client.try_set_fee_distribution_config(&config);
-    
+
     // In soroban, custom enum errors wrap in Ok() but fail as a contract error
     assert_eq!(result, Err(Ok(ContractError::InvalidFeeConfig)));
 }
@@ -2520,13 +2524,13 @@ fn test_fee_config_validation() {
 fn test_multisig_set_fee_config() {
     let env = setup_env();
     let (s1, s2, _, _, client) = deploy_multisig_router(&env);
-    
+
     let config = valid_fee_config(&env, Address::generate(&env), Address::generate(&env));
     let prop_id = client.propose(&s1, &ProposalAction::SetFeeConfig(config.clone()));
-    
+
     // s2 approves, auto-executing the config change
     client.approve_proposal(&s2, &prop_id);
-    
+
     let stored = client.get_fee_distribution_config().unwrap();
     assert_eq!(stored.min_distribution, 100);
 }
@@ -2537,34 +2541,55 @@ fn test_manual_fee_distribution_with_dust() {
     let (_admin, _, client) = deploy_router(&env);
     let pool = deploy_mock_pool(&env);
     client.register_pool(&pool);
-    
+
     let r1 = Address::generate(&env);
     let r2 = Address::generate(&env);
     let treasury = Address::generate(&env);
-    
+
     let mut recipients = Vec::new(&env);
     // Splits: 33.33%, 33.33%, 33.34%
-    recipients.push_back(FeeRecipient { address: r1.clone(), share_bps: 3333, label: Symbol::new(&env, "r1") });
-    recipients.push_back(FeeRecipient { address: r2.clone(), share_bps: 3333, label: Symbol::new(&env, "r2") });
-    recipients.push_back(FeeRecipient { address: treasury.clone(), share_bps: 3334, label: Symbol::new(&env, "treasury") });
-    
+    recipients.push_back(FeeRecipient {
+        address: r1.clone(),
+        share_bps: 3333,
+        label: Symbol::new(&env, "r1"),
+    });
+    recipients.push_back(FeeRecipient {
+        address: r2.clone(),
+        share_bps: 3333,
+        label: Symbol::new(&env, "r2"),
+    });
+    recipients.push_back(FeeRecipient {
+        address: treasury.clone(),
+        share_bps: 3334,
+        label: Symbol::new(&env, "treasury"),
+    });
+
     client.set_fee_distribution_config(&FeeConfig {
         recipients,
         min_distribution: 10,
         auto_distribute: false,
     });
-    
+
     // 1M -> 990K pool_out -> 30 bps fee = 297 fee
-    client.execute_swap(&Address::generate(&env), &swap_params_for(&env, make_route(&env, &pool, 1), 1_000_000, 0, current_seq(&env) + 100));
-    
+    client.execute_swap(
+        &Address::generate(&env),
+        &swap_params_for(
+            &env,
+            make_route(&env, &pool, 1),
+            1_000_000,
+            0,
+            current_seq(&env) + 100,
+        ),
+    );
+
     let fee_balance = client.get_fee_balance(&Asset::Native);
     assert_eq!(fee_balance, 297);
-    
+
     client.distribute_fees(&Asset::Native);
-    
+
     // Balance reset
     assert_eq!(client.get_fee_balance(&Asset::Native), 0);
-    
+
     // Validate history metric
     let history = client.get_distribution_history(&Asset::Native);
     assert_eq!(history.len(), 1);
@@ -2577,27 +2602,53 @@ fn test_auto_distribution_triggers() {
     let (_admin, _, client) = deploy_router(&env);
     let pool = deploy_mock_pool(&env);
     client.register_pool(&pool);
-    
+
     let config = FeeConfig {
-        recipients: valid_fee_config(&env, Address::generate(&env), Address::generate(&env)).recipients,
+        recipients: valid_fee_config(&env, Address::generate(&env), Address::generate(&env))
+            .recipients,
         min_distribution: 100,
         auto_distribute: true,
     };
     client.set_fee_distribution_config(&config);
-    
+
     // Swap that generates 2 fee (under the 100 threshold)
-    client.execute_swap(&Address::generate(&env), &swap_params_for(&env, make_route(&env, &pool, 1), 1000, 0, current_seq(&env) + 100));
+    client.execute_swap(
+        &Address::generate(&env),
+        &swap_params_for(
+            &env,
+            make_route(&env, &pool, 1),
+            1000,
+            0,
+            current_seq(&env) + 100,
+        ),
+    );
     assert_eq!(client.get_fee_balance(&Asset::Native), 2);
     assert_eq!(client.get_distribution_history(&Asset::Native).len(), 0);
-    
+
     // Swap that generates 297 fee (crosses the threshold of 100)
-    client.execute_swap(&Address::generate(&env), &swap_params_for(&env, make_route(&env, &pool, 1), 1_000_000, 0, current_seq(&env) + 100));
-    
+    client.execute_swap(
+        &Address::generate(&env),
+        &swap_params_for(
+            &env,
+            make_route(&env, &pool, 1),
+            1_000_000,
+            0,
+            current_seq(&env) + 100,
+        ),
+    );
+
     // Balance should be 0 because it automatically distributed
     assert_eq!(client.get_fee_balance(&Asset::Native), 0);
     assert_eq!(client.get_distribution_history(&Asset::Native).len(), 1);
     // Both 2 and 297 are distributed together
-    assert_eq!(client.get_distribution_history(&Asset::Native).get(0).unwrap().total_distributed, 299); 
+    assert_eq!(
+        client
+            .get_distribution_history(&Asset::Native)
+            .get(0)
+            .unwrap()
+            .total_distributed,
+        299
+    );
 }
 
 #[test]
@@ -2606,22 +2657,31 @@ fn test_burn_recipient_tracking() {
     let (_admin, _, client) = deploy_router(&env);
     let pool = deploy_mock_pool(&env);
     client.register_pool(&pool);
-    
+
     let mut recipients = Vec::new(&env);
     recipients.push_back(FeeRecipient {
         address: Address::generate(&env),
         share_bps: 10000, // 100%
         label: Symbol::new(&env, "burn"),
     });
-    
+
     client.set_fee_distribution_config(&FeeConfig {
         recipients,
         min_distribution: 0,
         auto_distribute: false,
     });
-    
-    client.execute_swap(&Address::generate(&env), &swap_params_for(&env, make_route(&env, &pool, 1), 1_000_000, 0, current_seq(&env) + 100));
+
+    client.execute_swap(
+        &Address::generate(&env),
+        &swap_params_for(
+            &env,
+            make_route(&env, &pool, 1),
+            1_000_000,
+            0,
+            current_seq(&env) + 100,
+        ),
+    );
     client.distribute_fees(&Asset::Native);
-    
+
     assert_eq!(client.get_total_fees_burned(&Asset::Native), 297);
 }

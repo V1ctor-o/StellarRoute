@@ -1,4 +1,4 @@
-use crate::types::{ProposalAction, Route, Asset};
+use crate::types::{Asset, ProposalAction, Route};
 use soroban_sdk::{symbol_short, Address, BytesN, Env, Symbol};
 
 pub fn initialized(e: &Env, admin: Address, fee_rate: u32) {
@@ -177,15 +177,18 @@ pub fn commitment_revealed(e: &Env, sender: Address, commitment_hash: BytesN<32>
 
 pub fn fee_collected(e: &Env, asset: Asset, amount: i128) {
     let topics = (Symbol::new(e, "StellarRoute"), symbol_short!("fee_col"));
-    e.events().publish(topics, (asset, amount, e.ledger().sequence()));
+    e.events()
+        .publish(topics, (asset, amount, e.ledger().sequence()));
 }
 
 pub fn fees_distributed(e: &Env, asset: Asset, total_distributed: i128) {
     let topics = (Symbol::new(e, "StellarRoute"), symbol_short!("fee_dist"));
-    e.events().publish(topics, (asset, total_distributed, e.ledger().sequence()));
+    e.events()
+        .publish(topics, (asset, total_distributed, e.ledger().sequence()));
 }
 
 pub fn fees_burned(e: &Env, asset: Asset, amount: i128) {
     let topics = (Symbol::new(e, "StellarRoute"), symbol_short!("fee_brn"));
-    e.events().publish(topics, (asset, amount, e.ledger().sequence()));
+    e.events()
+        .publish(topics, (asset, amount, e.ledger().sequence()));
 }

@@ -93,8 +93,8 @@ pub struct MevConfig {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FeeRecipient {
     pub address: Address,
-    pub share_bps: u32,        // Share in basis points (5000 = 50%)
-    pub label: Symbol,         // "treasury", "stakers", "burn", etc.
+    pub share_bps: u32, // Share in basis points (5000 = 50%)
+    pub label: Symbol,  // "treasury", "stakers", "burn", etc.
 }
 
 #[contracttype]
@@ -171,7 +171,7 @@ pub struct GovernanceConfig {
 pub enum ProposalAction {
     SetFeeRate(u32),
     SetFeeTo(Address),
-    SetFeeConfig(FeeConfig), // NEW: Supports multi-sig fee distribution updates
+    SetFeeConfig(FeeConfig),
     RegisterPool(Address, PoolType),
     DeregisterPool(Address),
     Pause,
