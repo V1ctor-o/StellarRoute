@@ -164,6 +164,20 @@ pub fn commitment_created(
         .publish(topics, (commitment_hash, deposit_amount));
 }
 
+pub fn commitment_revealed(e: &Env, sender: Address, computed_hash: BytesN<32>) {
+    let topics = (
+        Symbol::new(e, "StellarRoute"),
+        symbol_short!("cmt_rvl"),
+        sender,
+    );
+    e.events().publish(topics, computed_hash);
+}
+
+pub fn ttl_extended(e: &Env, pools_extended: u32, ledger: u32) {
+    let topics = (Symbol::new(e, "StellarRoute"), symbol_short!("ttl_ext"));
+    e.events().publish(topics, (pools_extended, ledger));
+}
+
 pub fn ttl_warning(e: &Env, estimated_remaining: u64, threshold: u32) {
     let topics = (Symbol::new(e, "StellarRoute"), symbol_short!("ttl_wrn"));
     e.events().publish(topics, (estimated_remaining, threshold));
