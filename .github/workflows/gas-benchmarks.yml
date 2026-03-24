@@ -75,7 +75,7 @@ jobs:
       - name: Optimize WASM
         run: |
           cd crates/contracts
-          wasm-opt -Oz target/wasm32-unknown-unknown/release/stellarroute_contracts.wasm \
+          wasm-opt -Oz ../../target/wasm32-unknown-unknown/release/stellarroute_contracts.wasm \
             -o optimized.wasm
 
       - name: Check WASM size
