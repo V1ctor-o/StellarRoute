@@ -3,8 +3,8 @@ use serde::Serialize;
 use std::ffi::OsStr;
 use std::num::NonZeroUsize;
 use stellarroute_sdk::{
-    HealthResponse, OrderbookLevel, OrderbookResponse, PairsResponse, QuoteRequest, QuoteResponse,
-    QuoteType, SdkError, StellarRouteClient,
+    ApiErrorCode, HealthResponse, OrderbookLevel, OrderbookResponse, PairsResponse, QuoteRequest,
+    QuoteResponse, QuoteType, SdkError, StellarRouteClient,
 };
 
 const EXIT_SUCCESS: i32 = 0;
@@ -793,7 +793,11 @@ step | from   | to   | price     | source
             EXIT_CONFIG_ERROR
         );
         assert_eq!(
-            exit_code_for_sdk_error(&SdkError::Api("api error".to_string())),
+            exit_code_for_sdk_error(&SdkError::Api {
+                code: ApiErrorCode::InternalError,
+                message: "api error".to_string(),
+                status: 500,
+            }),
             EXIT_RUNTIME_ERROR
         );
     }

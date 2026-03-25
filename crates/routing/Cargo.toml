@@ -14,7 +14,12 @@ anyhow.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 
-# Add routing-specific dependencies here
+# Routing-specific dependencies here
 
 [dev-dependencies]
 tokio-test = "0.4"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "routing_benchmarks"
+harness = false
