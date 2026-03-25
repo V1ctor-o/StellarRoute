@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,51 +13,26 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TransactionConfirmationModal } from "@/components/shared/TransactionConfirmationModal";
-import { TradeRouteDisplay } from "@/components/shared/TradeRouteDisplay";
 import { usePairs } from "@/hooks/useApi";
 import { useQuoteRefresh } from "@/hooks/useQuoteRefresh";
 import { useTransactionHistory } from "@/hooks/useTransactionHistory";
-import { usePairs, useQuote } from "@/hooks/useApi";
 import { useWallet } from "@/components/providers/wallet-provider";
+import { useSettings } from "@/components/providers/settings-provider";
 import { TransactionStatus } from "@/types/transaction";
 import { toast } from "sonner";
-import type { PathStep, TradingPair } from "@/types";
+import type { PathStep, TradingPair, PriceQuote } from "@/types";
 import {
   formatMaxAmountForInput,
   maxDecimalsForSellAsset,
   parseSellAmount,
 } from "@/lib/amount-input";
 
+import { QUOTE_AUTO_REFRESH_INTERVAL_MS } from "@/lib/quote-stale";
+
 const MOCK_WALLET = "GBSU...XYZ9";
 
 function pairKey(p: TradingPair): string {
   return `${p.base_asset}__${p.counter_asset}`;
-}
-
-import { QUOTE_AUTO_REFRESH_INTERVAL_MS } from "@/lib/quote-stale";
-import { PathStep } from "@/types";
-import { TransactionStatus } from "@/types/transaction";
-
-const MOCK_WALLET = "GBSU...XYZ9";
-const DEMO_SLIPPAGE_TOLERANCE_PCT = 0.5;
-
-/** Basic sell-side amount check for demo (7 dp max, typical for XLM). */
-function parseDemoSellAmount(raw: string): { ok: true; n: number } | { ok: false; message: string } {
-  const t = raw.trim().replace(/\s+/g, "");
-  if (!t) return { ok: false, message: "Enter an amount" };
-  if (/[eE][+-]?\d/.test(t)) {
-    return { ok: false, message: "Scientific notation is not supported" };
-  }
-  if (!/^\d*\.?\d+$/.test(t)) return { ok: false, message: "Invalid number" };
-  const parts = t.split(".");
-  if (parts.length === 2 && parts[1].length > 7) {
-    return { ok: false, message: "Too many decimal places (max 7)" };
-  }
-  const n = Number(t);
-  if (!Number.isFinite(n) || n <= 0) {
-    return { ok: false, message: "Enter a positive amount" };
-  }
-  return { ok: true, n };
 }
 
 const mockRoute: PathStep[] = [
@@ -75,6 +51,7 @@ const mockRoute: PathStep[] = [
 export function DemoSwap() {
   const { data: pairs, loading: pairsLoading, error: pairsError } = usePairs();
   const { isConnected, stubSpendableBalance } = useWallet();
+  const { settings } = useSettings();
 
   const [selectedKey, setSelectedKey] = useState<string>("");
   const [sellRaw, setSellRaw] = useState<string>("");
@@ -85,14 +62,12 @@ export function DemoSwap() {
   );
   const [errorMessage, setErrorMessage] = useState<string>();
   const [txHash, setTxHash] = useState<string>();
-  const [sellAmount, setSellAmount] = useState("100");
 
   const { addTransaction } = useTransactionHistory(MOCK_WALLET);
-  const { data: pairs, loading: pairsLoading, error: pairsError } = usePairs();
 
   useEffect(() => {
     if (!pairs?.length) return;
-    setSelectedKey((current) => {
+    setSelectedKey((current: string) => {
       if (current && pairs.some((p) => pairKey(p) === current)) {
         return current;
       }
@@ -124,7 +99,13 @@ export function DemoSwap() {
     data: quote,
     loading: quoteLoading,
     error: quoteError,
-  } = useQuote(quoteBase, quoteCounter, numericForQuote, "sell");
+    refresh,
+    manualRefreshCoolingDown,
+    autoRefreshEnabled,
+    setAutoRefreshEnabled,
+  } = useQuoteRefresh(quoteBase, quoteCounter, numericForQuote, "sell");
+
+  const refreshDisabled = quoteLoading || manualRefreshCoolingDown || !numericForQuote;
 
   const amountInputInvalid =
     sellRaw.trim() !== "" &&
@@ -139,19 +120,6 @@ export function DemoSwap() {
     if (!isConnected || stubSpendableBalance == null) return;
     setSellRaw(formatMaxAmountForInput(stubSpendableBalance, sellMaxDecimals));
   }, [isConnected, stubSpendableBalance, sellMaxDecimals]);
-
-  const mockRoute: PathStep[] = [
-    {
-      from_asset: { asset_type: "native" },
-      to_asset: {
-        asset_type: "credit_alphanum4",
-        asset_code: "USDC",
-        asset_issuer: "GA5Z...",
-      },
-      price: "0.105",
-      source: "sdex",
-    },
-  ];
 
   const handleSwapClick = () => {
     if (parseResult.status !== "ok" || !selectedPair) {
@@ -304,7 +272,7 @@ export function DemoSwap() {
             placeholder="0.0"
             value={sellRaw}
             aria-invalid={amountInputInvalid}
-            onChange={(e) => setSellRaw(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSellRaw(e.target.value)}
             className="text-lg font-medium"
           />
           <div className="min-h-[1.25rem] text-xs">
@@ -334,7 +302,10 @@ export function DemoSwap() {
             <span className="text-sm font-medium">Estimated receive</span>
             <div className="text-2xl font-bold mt-1 text-success">
               {quoteLoading && numericForQuote !== undefined ? (
-                "~ …"
+                <span className="flex items-center gap-2">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  ~ …
+                </span>
               ) : (
                 <>
                   {receivePreview}
@@ -354,34 +325,34 @@ export function DemoSwap() {
             </span>
             <div className="text-sm mt-1">{quote?.price ?? "—"}</div>
           </div>
-        )}
 
-        <div className="flex flex-wrap items-center gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={refreshDisabled}
-            onClick={() => refresh()}
-            className="gap-2"
-          >
-            {quoteLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-            ) : (
-              <RefreshCw className="h-4 w-4" aria-hidden />
-            )}
-            Refresh quote
-          </Button>
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
-            <input
-              type="checkbox"
-              className="h-4 w-4 rounded border-input"
-              checked={autoRefreshEnabled}
-              onChange={(e) => setAutoRefreshEnabled(e.target.checked)}
-            />
-            Auto-refresh (~{Math.round(QUOTE_AUTO_REFRESH_INTERVAL_MS / 1000)}s,
-            pauses when tab hidden)
-          </label>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={refreshDisabled}
+              onClick={() => refresh()}
+              className="gap-2"
+            >
+              {quoteLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              ) : (
+                <RefreshCw className="h-4 w-4" aria-hidden />
+              )}
+              Refresh quote
+            </Button>
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-input"
+                checked={autoRefreshEnabled}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAutoRefreshEnabled(e.target.checked)}
+              />
+              Auto-refresh (~{Math.round(QUOTE_AUTO_REFRESH_INTERVAL_MS / 1000)}s,
+              pauses when tab hidden)
+            </label>
+          </div>
         </div>
 
         <Button
@@ -404,7 +375,7 @@ export function DemoSwap() {
         toAmount={quote?.total ?? "—"}
         exchangeRate={quote?.price ?? "—"}
         priceImpact="0.1%"
-        slippageTolerancePct={DEMO_SLIPPAGE_TOLERANCE_PCT}
+        slippageTolerancePct={settings.slippageTolerance}
         networkFee="0.00001"
         routePath={quote?.path?.length ? quote.path : mockRoute}
         onConfirm={handleConfirm}
