@@ -1,4 +1,5 @@
 use crate::adapters::PoolAdapterTrait;
+use crate::types::Asset;
 use soroban_sdk::{contract, contractimpl, symbol_short, vec, Address, Env, IntoVal};
 
 #[contract]
@@ -8,8 +9,8 @@ pub struct ConstantProductAdapter;
 impl PoolAdapterTrait for ConstantProductAdapter {
     fn swap(
         e: Env,
-        input_asset: Address,
-        output_asset: Address,
+        input_asset: Asset,
+        output_asset: Asset,
         amount_in: i128,
         min_out: i128,
     ) -> i128 {
@@ -33,13 +34,8 @@ impl PoolAdapterTrait for ConstantProductAdapter {
         out
     }
 
-    fn adapter_quote(
-        e: Env,
-        _input_asset: Address,
-        _output_asset: Address,
-        amount_in: i128,
-    ) -> i128 {
-        let (res_in, res_out) = Self::get_reserves(e.clone());
+    fn adapter_quote(e: Env, _input_asset: Asset, _output_asset: Asset, amount_in: i128) -> i128 {
+        let (res_in, res_out) = Self::get_rsrvs(e.clone());
 
         // dy = (y * dx * 997) / (x * 1000 + dx * 997)
         let fee_multiplier: i128 = 997;
@@ -61,7 +57,7 @@ impl PoolAdapterTrait for ConstantProductAdapter {
         numerator / denominator
     }
 
-    fn get_reserves(e: Env) -> (i128, i128) {
+    fn get_rsrvs(e: Env) -> (i128, i128) {
         let pool_address: Address = e.storage().instance().get(&symbol_short!("POOL")).unwrap();
         // Call the underlying pool's reserve function
         e.invoke_contract(&pool_address, &symbol_short!("get_rsrvs"), vec![&e])

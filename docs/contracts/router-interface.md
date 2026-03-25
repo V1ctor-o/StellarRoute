@@ -28,6 +28,20 @@ Existing methods `get_quote` and `execute_swap` remain available for backward co
 - all assets pass token allowlist checks when allowlist is active
 - all pools in the route are registered
 
+## Supported AMM Assumptions
+
+The router executes AMM interactions through a CCI adapter layer and assumes each AMM pool contract in a route supports these methods:
+
+- `adapter_quote(in_asset: Asset, out_asset: Asset, amount_in: i128) -> i128`
+- `swap(in_asset: Asset, out_asset: Asset, amount_in: i128, min_out: i128) -> i128`
+- `get_rsrvs() -> (i128, i128)`
+
+Behavioral assumptions:
+
+- `adapter_quote` and `swap` failures are surfaced as typed router errors.
+- Reserve reads (`get_rsrvs`) are best-effort for manipulation checks; reserve call failures do not block swap execution.
+- Route hops intended for this adapter path should use AMM pool types (`AmmConstProd` / `AmmStable`).
+
 ## Event Schema
 
 All routing events share the `"StellarRoute"` contract topic prefix and a short event key for indexability.

@@ -15,6 +15,7 @@ use soroban_sdk::{
 };
 
 use super::{
+    adapters::AmmAdapter,
     errors::ContractError,
     router::{StellarRoute, StellarRouteClient},
     storage::{
@@ -77,7 +78,7 @@ mod mock_failing {
     use super::super::types::Asset;
     use soroban_sdk::{contract, contractimpl, Env};
 
-    /// A pool that always panics — used to test PoolCallFailed error paths.
+    /// A pool that always panics — used to test typed AMM CCI error paths.
     #[contract]
     pub struct MockFailingPool;
 
@@ -97,8 +98,80 @@ mod mock_failing {
     }
 }
 
+mod mock_quote_failing {
+    use super::super::types::Asset;
+    use soroban_sdk::{contract, contractimpl, Env};
+
+    #[contract]
+    pub struct MockQuoteFailingPool;
+
+    #[contractimpl]
+    impl MockQuoteFailingPool {
+        pub fn adapter_quote(_e: Env, _in: Asset, _out: Asset, _amount: i128) -> i128 {
+            panic!("mock: quote call failed")
+        }
+
+        pub fn swap(_e: Env, _in: Asset, _out: Asset, amount: i128, _min: i128) -> i128 {
+            amount
+        }
+
+        pub fn get_rsrvs(_e: Env) -> (i128, i128) {
+            (1_000_000, 1_000_000)
+        }
+    }
+}
+
+mod mock_swap_failing {
+    use super::super::types::Asset;
+    use soroban_sdk::{contract, contractimpl, Env};
+
+    #[contract]
+    pub struct MockSwapFailingPool;
+
+    #[contractimpl]
+    impl MockSwapFailingPool {
+        pub fn adapter_quote(_e: Env, _in: Asset, _out: Asset, amount: i128) -> i128 {
+            amount
+        }
+
+        pub fn swap(_e: Env, _in: Asset, _out: Asset, _amount: i128, _min: i128) -> i128 {
+            panic!("mock: swap call failed")
+        }
+
+        pub fn get_rsrvs(_e: Env) -> (i128, i128) {
+            (1_000_000, 1_000_000)
+        }
+    }
+}
+
+mod mock_reserves_failing {
+    use super::super::types::Asset;
+    use soroban_sdk::{contract, contractimpl, Env};
+
+    #[contract]
+    pub struct MockReservesFailingPool;
+
+    #[contractimpl]
+    impl MockReservesFailingPool {
+        pub fn adapter_quote(_e: Env, _in: Asset, _out: Asset, amount: i128) -> i128 {
+            amount
+        }
+
+        pub fn swap(_e: Env, _in: Asset, _out: Asset, amount: i128, _min: i128) -> i128 {
+            amount
+        }
+
+        pub fn get_rsrvs(_e: Env) -> (i128, i128) {
+            panic!("mock: reserves call failed")
+        }
+    }
+}
+
 use mock_amm::MockAmmPool;
 use mock_failing::MockFailingPool;
+use mock_quote_failing::MockQuoteFailingPool;
+use mock_reserves_failing::MockReservesFailingPool;
+use mock_swap_failing::MockSwapFailingPool;
 
 // ── Test Utilities ────────────────────────────────────────────────────────────
 
@@ -143,6 +216,18 @@ pub(crate) fn deploy_mock_pool(env: &Env) -> Address {
 
 fn deploy_failing_pool(env: &Env) -> Address {
     env.register_contract(None, MockFailingPool)
+}
+
+fn deploy_quote_failing_pool(env: &Env) -> Address {
+    env.register_contract(None, MockQuoteFailingPool)
+}
+
+fn deploy_swap_failing_pool(env: &Env) -> Address {
+    env.register_contract(None, MockSwapFailingPool)
+}
+
+fn deploy_reserves_failing_pool(env: &Env) -> Address {
+    env.register_contract(None, MockReservesFailingPool)
 }
 
 pub(crate) fn make_route(env: &Env, pool: &Address, hops: u32) -> Route {
@@ -517,7 +602,19 @@ fn test_get_quote_failing_pool_returns_error() {
     client.register_pool(&pool);
     assert_eq!(
         client.try_get_quote(&1000, &make_route(&env, &pool, 1)),
-        Err(Ok(ContractError::PoolCallFailed))
+        Err(Ok(ContractError::AmmQuoteCallFailed))
+    );
+}
+
+#[test]
+fn test_get_quote_quote_adapter_failure_is_typed() {
+    let env = setup_env();
+    let (_, _, client) = deploy_router(&env);
+    let pool = deploy_quote_failing_pool(&env);
+    client.register_pool(&pool);
+    assert_eq!(
+        client.try_get_quote(&1000, &make_route(&env, &pool, 1)),
+        Err(Ok(ContractError::AmmQuoteCallFailed))
     );
 }
 
@@ -832,7 +929,7 @@ fn test_failed_swap_does_not_increment_nonce() {
     );
     let after = get_nonce(&env, sender.clone());
 
-    assert_eq!(result, Err(Ok(ContractError::PoolCallFailed)));
+    assert_eq!(result, Err(Ok(ContractError::AmmSwapCallFailed)));
     assert_eq!(before, after);
 }
 
@@ -892,7 +989,38 @@ fn test_swap_pool_call_failure() {
                 current_seq(&env) + 100
             ),
         ),
-        Err(Ok(ContractError::PoolCallFailed))
+        Err(Ok(ContractError::AmmSwapCallFailed))
+    );
+}
+
+#[test]
+fn test_swap_adapter_failure_is_typed() {
+    let env = setup_env();
+    let (_, _, client) = deploy_router(&env);
+    let pool = deploy_swap_failing_pool(&env);
+    client.register_pool(&pool);
+    assert_eq!(
+        client.try_execute_swap(
+            &Address::generate(&env),
+            &swap_params_for(
+                &env,
+                make_route(&env, &pool, 1),
+                1000,
+                0,
+                current_seq(&env) + 100
+            ),
+        ),
+        Err(Ok(ContractError::AmmSwapCallFailed))
+    );
+}
+
+#[test]
+fn test_adapter_get_reserves_failure_is_typed() {
+    let env = setup_env();
+    let pool = deploy_reserves_failing_pool(&env);
+    assert_eq!(
+        AmmAdapter::get_reserves(&env, &pool),
+        Err(ContractError::AmmReservesCallFailed)
     );
 }
 
@@ -1116,7 +1244,7 @@ fn property_all_contract_errors_are_reachable() {
         env.ledger().with_mut(|li| li.sequence_number = 0);
     }
 
-    // PoolCallFailed
+    // AmmSwapCallFailed
     {
         let (_, _, c) = deploy_router(&env);
         let pool = deploy_failing_pool(&env);
@@ -1132,7 +1260,7 @@ fn property_all_contract_errors_are_reachable() {
                     current_seq(&env) + 100
                 ),
             ),
-            Err(Ok(ContractError::PoolCallFailed))
+            Err(Ok(ContractError::AmmSwapCallFailed))
         );
     }
 
