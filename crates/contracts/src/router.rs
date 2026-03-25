@@ -1,3 +1,4 @@
+use crate::adapters::AmmAdapter;
 use crate::errors::ContractError;
 use crate::events;
 use crate::storage::{
@@ -12,8 +13,7 @@ use crate::types::{
 };
 use crate::{governance, tokens, upgrade};
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, vec, Address, Bytes, BytesN, Env, IntoVal,
-    Symbol, Vec,
+    contract, contractimpl, contracttype, symbol_short, Address, Bytes, BytesN, Env, Vec,
 };
 
 const MAX_HOPS: u32 = 4;
@@ -624,21 +624,8 @@ impl StellarRoute {
         for i in 0..route.hops.len() {
             let hop = route.hops.get(i).unwrap();
 
-            let call_result = e.try_invoke_contract::<i128, soroban_sdk::Error>(
-                &hop.pool,
-                &Symbol::new(&e, "adapter_quote"),
-                vec![
-                    &e,
-                    hop.source.into_val(&e),
-                    hop.destination.into_val(&e),
-                    current_amount.into_val(&e),
-                ],
-            );
-
-            current_amount = match call_result {
-                Ok(Ok(val)) => val,
-                _ => return Err(ContractError::PoolCallFailed),
-            };
+            current_amount =
+                AmmAdapter::quote(&e, &hop.pool, &hop.source, &hop.destination, current_amount)?;
             total_impact_bps += 5;
         }
 
@@ -796,15 +783,7 @@ impl StellarRoute {
         let mut pre_reserves: soroban_sdk::Vec<(i128, i128)> = soroban_sdk::Vec::new(e);
         for i in 0..params.route.hops.len() {
             let hop = params.route.hops.get(i).unwrap();
-            let reserves_result = e.try_invoke_contract::<(i128, i128), soroban_sdk::Error>(
-                &hop.pool,
-                &symbol_short!("get_rsrvs"),
-                vec![e],
-            );
-            let reserves = match reserves_result {
-                Ok(Ok(val)) => val,
-                _ => (0_i128, 0_i128), // If pool doesn't support reserves, skip check
-            };
+            let reserves = AmmAdapter::get_reserves(e, &hop.pool).unwrap_or((0_i128, 0_i128));
             pre_reserves.push_back(reserves);
         }
 
@@ -824,22 +803,14 @@ impl StellarRoute {
         for i in 0..params.route.hops.len() {
             let hop = params.route.hops.get(i).unwrap();
 
-            let call_result = e.try_invoke_contract::<i128, soroban_sdk::Error>(
+            current_input_amount = AmmAdapter::swap(
+                e,
                 &hop.pool,
-                &symbol_short!("swap"),
-                vec![
-                    e,
-                    hop.source.into_val(e),
-                    hop.destination.into_val(e),
-                    current_input_amount.into_val(e),
-                    0_i128.into_val(e),
-                ],
-            );
-
-            current_input_amount = match call_result {
-                Ok(Ok(val)) => val,
-                _ => return Err(ContractError::PoolCallFailed),
-            };
+                &hop.source,
+                &hop.destination,
+                current_input_amount,
+                0,
+            )?;
             total_impact_bps += 5;
         }
 
@@ -895,12 +866,7 @@ impl StellarRoute {
                 continue; // Skip if pre-snapshot wasn't available
             }
 
-            let post_result = e.try_invoke_contract::<(i128, i128), soroban_sdk::Error>(
-                &hop.pool,
-                &symbol_short!("get_rsrvs"),
-                vec![e],
-            );
-            if let Ok(Ok(post)) = post_result {
+            if let Ok(post) = AmmAdapter::get_reserves(e, &hop.pool) {
                 // Check that reserves changed in the expected direction
                 // For a swap: one reserve goes up, one goes down
                 let delta_0 = post.0.checked_sub(pre.0).unwrap_or(i128::MIN);

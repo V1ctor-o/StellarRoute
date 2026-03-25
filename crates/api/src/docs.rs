@@ -4,7 +4,8 @@ use utoipa::OpenApi;
 
 use crate::models::{
     AssetInfo, CacheMetricsResponse, ErrorResponse, HealthResponse, OrderbookLevel,
-    OrderbookResponse, PairsResponse, PathStep, QuoteResponse, TradingPair,
+    OrderbookResponse, PairsResponse, PathStep, QuoteRationaleMetadata, QuoteResponse,
+    TradingPair, VenueEvaluation,
 };
 
 /// OpenAPI documentation
@@ -26,6 +27,8 @@ use crate::models::{
         OrderbookResponse,
         OrderbookLevel,
         QuoteResponse,
+        QuoteRationaleMetadata,
+        VenueEvaluation,
         PathStep,
         ErrorResponse,
     )),
