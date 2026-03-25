@@ -30,7 +30,7 @@ impl Default for OptimizerPolicy {
             output_weight: 0.5,
             impact_weight: 0.3,
             latency_weight: 0.2,
-            max_impact_bps: 500, // 5%
+            max_impact_bps: 500,       // 5%
             max_compute_time_ms: 1000, // 1 second
             environment: "production".to_string(),
         }
@@ -46,13 +46,13 @@ impl OptimizerPolicy {
                 "policy weights must sum to 1.0".to_string(),
             ));
         }
-        
+
         if self.output_weight < 0.0 || self.impact_weight < 0.0 || self.latency_weight < 0.0 {
             return Err(RoutingError::InvalidAmount(
                 "policy weights must be non-negative".to_string(),
             ));
         }
-        
+
         Ok(())
     }
 }
@@ -177,9 +177,10 @@ impl HybridOptimizer {
     /// Set active policy by environment name
     pub fn set_active_policy(&mut self, environment: &str) -> Result<()> {
         if !self.policies.contains_key(environment) {
-            return Err(RoutingError::InvalidAmount(
-                format!("policy '{}' not found", environment),
-            ));
+            return Err(RoutingError::InvalidAmount(format!(
+                "policy '{}' not found",
+                environment
+            )));
         }
         self.active_policy = environment.to_string();
         Ok(())
@@ -203,7 +204,7 @@ impl HybridOptimizer {
 
         // Find all possible paths
         let paths = self.pathfinder.find_paths(from, to, edges, amount_in)?;
-        
+
         if paths.is_empty() {
             return Err(RoutingError::NoRoute(from.to_string(), to.to_string()));
         }
@@ -212,16 +213,18 @@ impl HybridOptimizer {
         let mut scored_paths = Vec::new();
         for path in &paths {
             let metrics = self.calculate_route_metrics(path, edges, amount_in)?;
-            
+
             // Check if route meets policy constraints
-            if metrics.impact_bps <= policy.max_impact_bps 
-                && metrics.compute_time_us <= policy.max_compute_time_ms * 1000 {
+            if metrics.impact_bps <= policy.max_impact_bps
+                && metrics.compute_time_us <= policy.max_compute_time_ms * 1000
+            {
                 scored_paths.push((path.clone(), metrics));
             }
         }
 
         if scored_paths.is_empty() {
             return Err(RoutingError::NoRoute(
+                "".to_string(),
                 "no routes meet policy constraints".to_string(),
             ));
         }
@@ -230,7 +233,8 @@ impl HybridOptimizer {
         scored_paths.sort_by(|a, b| b.1.score.partial_cmp(&a.1.score).unwrap());
 
         let (selected_path, selected_metrics) = scored_paths[0].clone();
-        let alternatives: Vec<(SwapPath, RouteMetrics)> = scored_paths.into_iter().skip(1).collect();
+        let alternatives: Vec<(SwapPath, RouteMetrics)> =
+            scored_paths.into_iter().skip(1).collect();
 
         Ok(OptimizerDiagnostics {
             selected_path,
@@ -249,18 +253,19 @@ impl HybridOptimizer {
         amount_in: i128,
     ) -> Result<RouteMetrics> {
         let start_time = Instant::now();
-        
+
         let mut total_output = amount_in;
         let mut total_impact_bps = 0u32;
-        
+
         // Simulate execution through each hop
         for hop in &path.hops {
             // Find corresponding edge
-            let edge = edges.iter()
+            let edge = edges
+                .iter()
                 .find(|e| e.from == hop.source_asset && e.to == hop.destination_asset)
-                .ok_or_else(|| RoutingError::NoRoute(
-                    format!("edge not found for hop {} -> {}", hop.source_asset, hop.destination_asset)
-                ))?;
+                .ok_or_else(|| {
+                    RoutingError::NoRoute(hop.source_asset.clone(), hop.destination_asset.clone())
+                })?;
 
             // Calculate impact based on venue type
             let (output, impact_bps) = if edge.venue_type == "amm" {
@@ -296,11 +301,11 @@ impl HybridOptimizer {
         // Normalize metrics (simplified normalization)
         // Higher output is better (normalize by input amount assumption)
         let output_score = (output as f64 / 1_000_000_000.0).min(1.0); // Normalize to ~1B
-        
+
         // Lower impact is better
         let impact_score = 1.0 - (impact_bps as f64 / 1000.0).min(1.0); // Normalize to 1000 bps
-        
-        // Lower compute time is better  
+
+        // Lower compute time is better
         let latency_score = 1.0 - (compute_time_us as f64 / 1_000_000.0).min(1.0); // Normalize to 1ms
 
         // Weighted combination
@@ -319,9 +324,10 @@ impl HybridOptimizer {
     ) -> Result<Vec<(String, OptimizerDiagnostics)>> {
         let mut results = Vec::new();
         let original_policy = self.active_policy.clone();
+        let policy_names: Vec<String> = self.policies.keys().cloned().collect();
 
-        for env_name in self.policies.keys() {
-            self.set_active_policy(env_name)?;
+        for env_name in policy_names {
+            self.set_active_policy(&env_name)?;
             let diagnostics = self.find_optimal_routes(from, to, edges, amount_in)?;
             results.push((env_name.clone(), diagnostics));
         }
@@ -368,7 +374,7 @@ mod tests {
     #[test]
     fn test_optimizer_creation() {
         let optimizer = HybridOptimizer::default();
-        assert_eq!(optimizer.active_policy(), "production");
+        assert_eq!(optimizer.active_policy().environment, "production");
         assert!(optimizer.policies.contains_key("realtime"));
         assert!(optimizer.policies.contains_key("analysis"));
     }
@@ -376,17 +382,17 @@ mod tests {
     #[test]
     fn test_policy_switching() {
         let mut optimizer = HybridOptimizer::default();
-        
+
         assert!(optimizer.set_active_policy("realtime").is_ok());
         assert_eq!(optimizer.active_policy().environment, "realtime");
-        
+
         assert!(optimizer.set_active_policy("invalid").is_err());
     }
 
     #[test]
     fn test_custom_policy() {
         let mut optimizer = HybridOptimizer::default();
-        
+
         let custom_policy = OptimizerPolicy {
             output_weight: 0.6,
             impact_weight: 0.3,
@@ -395,7 +401,7 @@ mod tests {
             max_compute_time_ms: 300,
             environment: "custom".to_string(),
         };
-        
+
         assert!(optimizer.add_policy(custom_policy).is_ok());
         assert!(optimizer.set_active_policy("custom").is_ok());
     }

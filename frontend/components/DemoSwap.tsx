@@ -86,9 +86,9 @@ export function DemoSwap() {
 
   const sellMaxDecimals = selectedPair
     ? maxDecimalsForSellAsset(
-        selectedPair.base_asset,
-        selectedPair.base_decimals,
-      )
+      selectedPair.base_asset,
+      selectedPair.base_decimals,
+    )
     : maxDecimalsForSellAsset("native");
 
   const parseResult = parseSellAmount(sellRaw, sellMaxDecimals);
@@ -138,11 +138,6 @@ export function DemoSwap() {
     setSellRaw(formatMaxAmountForInput(stubSpendableBalance, sellMaxDecimals));
   }, [isConnected, stubSpendableBalance, sellMaxDecimals]);
 
-<<<<<<< HEAD
-=======
-
-
->>>>>>> 3dd66dcbab93f5d07cae58afda851a9fdc7ebb35
   const handleSwapClick = () => {
     if (parseResult.status !== "ok" || !selectedPair) {
       toast.error("Enter a valid sell amount and select a pair.");
@@ -388,9 +383,8 @@ export function DemoSwap() {
                   key={preset}
                   type="button"
                   onClick={() => setSlippage(preset)}
-                  className={`rounded-md border px-3 py-1 text-sm ${
-                    slippage === preset ? "bg-primary text-primary-foreground" : ""
-                  }`}
+                  className={`rounded-md border px-3 py-1 text-sm ${slippage === preset ? "bg-primary text-primary-foreground" : ""
+                    }`}
                 >
                   {preset}%
                 </button>
