@@ -18,7 +18,5 @@ reqwest.workspace = true
 chrono.workspace = true
 uuid.workspace = true
 
-# Add SDK-specific dependencies here
-
-[dev-dependencies]
-tokio-test = "0.4"
+# SDK-specific dependencies
+clap = { version = "4.5", features = ["derive", "env"] }

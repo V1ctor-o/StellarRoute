@@ -7,11 +7,11 @@
     [],
     [
       [
-        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
         {
           "function": {
             "contract_fn": {
-              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
               "function_name": "register_pool",
               "args": [
                 {
@@ -24,15 +24,14 @@
         }
       ]
     ],
-    [],
     [
       [
         "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK3IM",
         {
           "function": {
             "contract_fn": {
-              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
-              "function_name": "execute_swap",
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
+              "function_name": "execute",
               "args": [
                 {
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK3IM"
@@ -222,6 +221,39 @@
           "contract_data": {
             "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
             "key": {
+              "ledger_key_nonce": {
+                "nonce": 801925984706572462
+              }
+            },
+            "durability": "temporary"
+          }
+        },
+        [
+          {
+            "last_modified_ledger_seq": 0,
+            "data": {
+              "contract_data": {
+                "ext": "v0",
+                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+                "key": {
+                  "ledger_key_nonce": {
+                    "nonce": 801925984706572462
+                  }
+                },
+                "durability": "temporary",
+                "val": "void"
+              }
+            },
+            "ext": "v0"
+          },
+          6311999
+        ]
+      ],
+      [
+        {
+          "contract_data": {
+            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
+            "key": {
               "vec": [
                 {
                   "symbol": "FeeBalance"
@@ -244,7 +276,7 @@
             "data": {
               "contract_data": {
                 "ext": "v0",
-                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
                 "key": {
                   "vec": [
                     {
@@ -276,7 +308,7 @@
       [
         {
           "contract_data": {
-            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
             "key": {
               "vec": [
                 {
@@ -296,7 +328,7 @@
             "data": {
               "contract_data": {
                 "ext": "v0",
-                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
                 "key": {
                   "vec": [
                     {
@@ -321,7 +353,7 @@
       [
         {
           "contract_data": {
-            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
             "key": {
               "vec": [
                 {
@@ -341,7 +373,7 @@
             "data": {
               "contract_data": {
                 "ext": "v0",
-                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
                 "key": {
                   "vec": [
                     {
@@ -369,7 +401,7 @@
       [
         {
           "contract_data": {
-            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
             "key": {
               "vec": [
                 {
@@ -393,7 +425,7 @@
             "data": {
               "contract_data": {
                 "ext": "v0",
-                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
                 "key": {
                   "vec": [
                     {
@@ -425,7 +457,7 @@
       [
         {
           "contract_data": {
-            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
             "key": {
               "vec": [
                 {
@@ -442,7 +474,7 @@
             "data": {
               "contract_data": {
                 "ext": "v0",
-                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
                 "key": {
                   "vec": [
                     {
@@ -467,7 +499,7 @@
       [
         {
           "contract_data": {
-            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
             "key": "ledger_key_contract_instance",
             "durability": "persistent"
           }
@@ -478,7 +510,7 @@
             "data": {
               "contract_data": {
                 "ext": "v0",
-                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
                 "key": "ledger_key_contract_instance",
                 "durability": "persistent",
                 "val": {
@@ -496,7 +528,7 @@
                           ]
                         },
                         "val": {
-                          "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                          "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
                         }
                       },
                       {
@@ -520,7 +552,7 @@
                           ]
                         },
                         "val": {
-                          "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                          "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
                         }
                       },
                       {
@@ -583,39 +615,6 @@
             "ext": "v0"
           },
           518400
-        ]
-      ],
-      [
-        {
-          "contract_data": {
-            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
-            "key": {
-              "ledger_key_nonce": {
-                "nonce": 801925984706572462
-              }
-            },
-            "durability": "temporary"
-          }
-        },
-        [
-          {
-            "last_modified_ledger_seq": 0,
-            "data": {
-              "contract_data": {
-                "ext": "v0",
-                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
-                "key": {
-                  "ledger_key_nonce": {
-                    "nonce": 801925984706572462
-                  }
-                },
-                "durability": "temporary",
-                "val": "void"
-              }
-            },
-            "ext": "v0"
-          },
-          6311999
         ]
       ],
       [
@@ -719,7 +718,7 @@
                 "symbol": "fn_call"
               },
               {
-                "bytes": "0000000000000000000000000000000000000000000000000000000000000001"
+                "bytes": "0000000000000000000000000000000000000000000000000000000000000003"
               },
               {
                 "symbol": "initialize"
@@ -728,13 +727,13 @@
             "data": {
               "vec": [
                 {
-                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
                 },
                 {
                   "u32": 30
                 },
                 {
-                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
                 },
                 "void",
                 "void",
@@ -751,7 +750,7 @@
     {
       "event": {
         "ext": "v0",
-        "contract_id": "0000000000000000000000000000000000000000000000000000000000000001",
+        "contract_id": "0000000000000000000000000000000000000000000000000000000000000003",
         "type_": "contract",
         "body": {
           "v0": {
@@ -766,7 +765,7 @@
             "data": {
               "vec": [
                 {
-                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
                 },
                 {
                   "u32": 30
@@ -781,7 +780,7 @@
     {
       "event": {
         "ext": "v0",
-        "contract_id": "0000000000000000000000000000000000000000000000000000000000000001",
+        "contract_id": "0000000000000000000000000000000000000000000000000000000000000003",
         "type_": "diagnostic",
         "body": {
           "v0": {
@@ -811,7 +810,7 @@
                 "symbol": "fn_call"
               },
               {
-                "bytes": "0000000000000000000000000000000000000000000000000000000000000001"
+                "bytes": "0000000000000000000000000000000000000000000000000000000000000003"
               },
               {
                 "symbol": "register_pool"
@@ -828,7 +827,7 @@
     {
       "event": {
         "ext": "v0",
-        "contract_id": "0000000000000000000000000000000000000000000000000000000000000001",
+        "contract_id": "0000000000000000000000000000000000000000000000000000000000000003",
         "type_": "contract",
         "body": {
           "v0": {
@@ -851,7 +850,7 @@
     {
       "event": {
         "ext": "v0",
-        "contract_id": "0000000000000000000000000000000000000000000000000000000000000001",
+        "contract_id": "0000000000000000000000000000000000000000000000000000000000000003",
         "type_": "diagnostic",
         "body": {
           "v0": {
@@ -881,419 +880,10 @@
                 "symbol": "fn_call"
               },
               {
-                "bytes": "0000000000000000000000000000000000000000000000000000000000000001"
+                "bytes": "0000000000000000000000000000000000000000000000000000000000000003"
               },
               {
-                "symbol": "get_quote"
-              }
-            ],
-            "data": {
-              "vec": [
-                {
-                  "i128": {
-                    "hi": 0,
-                    "lo": 1000
-                  }
-                },
-                {
-                  "map": [
-                    {
-                      "key": {
-                        "symbol": "estimated_output"
-                      },
-                      "val": {
-                        "i128": {
-                          "hi": 0,
-                          "lo": 990
-                        }
-                      }
-                    },
-                    {
-                      "key": {
-                        "symbol": "expires_at"
-                      },
-                      "val": {
-                        "u64": 99999
-                      }
-                    },
-                    {
-                      "key": {
-                        "symbol": "hops"
-                      },
-                      "val": {
-                        "vec": [
-                          {
-                            "map": [
-                              {
-                                "key": {
-                                  "symbol": "destination"
-                                },
-                                "val": {
-                                  "vec": [
-                                    {
-                                      "symbol": "Native"
-                                    }
-                                  ]
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "pool"
-                                },
-                                "val": {
-                                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "pool_type"
-                                },
-                                "val": {
-                                  "vec": [
-                                    {
-                                      "symbol": "AmmConstProd"
-                                    }
-                                  ]
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "source"
-                                },
-                                "val": {
-                                  "vec": [
-                                    {
-                                      "symbol": "Native"
-                                    }
-                                  ]
-                                }
-                              }
-                            ]
-                          }
-                        ]
-                      }
-                    },
-                    {
-                      "key": {
-                        "symbol": "min_output"
-                      },
-                      "val": {
-                        "i128": {
-                          "hi": 0,
-                          "lo": 900
-                        }
-                      }
-                    }
-                  ]
-                }
-              ]
-            }
-          }
-        }
-      },
-      "failed_call": false
-    },
-    {
-      "event": {
-        "ext": "v0",
-        "contract_id": "0000000000000000000000000000000000000000000000000000000000000001",
-        "type_": "diagnostic",
-        "body": {
-          "v0": {
-            "topics": [
-              {
-                "symbol": "fn_call"
-              },
-              {
-                "bytes": "0000000000000000000000000000000000000000000000000000000000000004"
-              },
-              {
-                "symbol": "adapter_quote"
-              }
-            ],
-            "data": {
-              "vec": [
-                {
-                  "vec": [
-                    {
-                      "symbol": "Native"
-                    }
-                  ]
-                },
-                {
-                  "vec": [
-                    {
-                      "symbol": "Native"
-                    }
-                  ]
-                },
-                {
-                  "i128": {
-                    "hi": 0,
-                    "lo": 1000
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
-      "failed_call": false
-    },
-    {
-      "event": {
-        "ext": "v0",
-        "contract_id": "0000000000000000000000000000000000000000000000000000000000000004",
-        "type_": "diagnostic",
-        "body": {
-          "v0": {
-            "topics": [
-              {
-                "symbol": "fn_return"
-              },
-              {
-                "symbol": "adapter_quote"
-              }
-            ],
-            "data": {
-              "i128": {
-                "hi": 0,
-                "lo": 990
-              }
-            }
-          }
-        }
-      },
-      "failed_call": false
-    },
-    {
-      "event": {
-        "ext": "v0",
-        "contract_id": "0000000000000000000000000000000000000000000000000000000000000001",
-        "type_": "contract",
-        "body": {
-          "v0": {
-            "topics": [
-              {
-                "symbol": "StellarRoute"
-              },
-              {
-                "symbol": "quote"
-              }
-            ],
-            "data": {
-              "vec": [
-                {
-                  "i128": {
-                    "hi": 0,
-                    "lo": 1000
-                  }
-                },
-                {
-                  "i128": {
-                    "hi": 0,
-                    "lo": 988
-                  }
-                },
-                {
-                  "i128": {
-                    "hi": 0,
-                    "lo": 2
-                  }
-                },
-                {
-                  "u32": 5
-                },
-                {
-                  "u32": 1
-                },
-                {
-                  "u64": 120
-                },
-                {
-                  "u32": 0
-                }
-              ]
-            }
-          }
-        }
-      },
-      "failed_call": false
-    },
-    {
-      "event": {
-        "ext": "v0",
-        "contract_id": "0000000000000000000000000000000000000000000000000000000000000001",
-        "type_": "diagnostic",
-        "body": {
-          "v0": {
-            "topics": [
-              {
-                "symbol": "fn_return"
-              },
-              {
-                "symbol": "get_quote"
-              }
-            ],
-            "data": {
-              "map": [
-                {
-                  "key": {
-                    "symbol": "expected_output"
-                  },
-                  "val": {
-                    "i128": {
-                      "hi": 0,
-                      "lo": 988
-                    }
-                  }
-                },
-                {
-                  "key": {
-                    "symbol": "fee_amount"
-                  },
-                  "val": {
-                    "i128": {
-                      "hi": 0,
-                      "lo": 2
-                    }
-                  }
-                },
-                {
-                  "key": {
-                    "symbol": "price_impact_bps"
-                  },
-                  "val": {
-                    "u32": 5
-                  }
-                },
-                {
-                  "key": {
-                    "symbol": "route"
-                  },
-                  "val": {
-                    "map": [
-                      {
-                        "key": {
-                          "symbol": "estimated_output"
-                        },
-                        "val": {
-                          "i128": {
-                            "hi": 0,
-                            "lo": 990
-                          }
-                        }
-                      },
-                      {
-                        "key": {
-                          "symbol": "expires_at"
-                        },
-                        "val": {
-                          "u64": 99999
-                        }
-                      },
-                      {
-                        "key": {
-                          "symbol": "hops"
-                        },
-                        "val": {
-                          "vec": [
-                            {
-                              "map": [
-                                {
-                                  "key": {
-                                    "symbol": "destination"
-                                  },
-                                  "val": {
-                                    "vec": [
-                                      {
-                                        "symbol": "Native"
-                                      }
-                                    ]
-                                  }
-                                },
-                                {
-                                  "key": {
-                                    "symbol": "pool"
-                                  },
-                                  "val": {
-                                    "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
-                                  }
-                                },
-                                {
-                                  "key": {
-                                    "symbol": "pool_type"
-                                  },
-                                  "val": {
-                                    "vec": [
-                                      {
-                                        "symbol": "AmmConstProd"
-                                      }
-                                    ]
-                                  }
-                                },
-                                {
-                                  "key": {
-                                    "symbol": "source"
-                                  },
-                                  "val": {
-                                    "vec": [
-                                      {
-                                        "symbol": "Native"
-                                      }
-                                    ]
-                                  }
-                                }
-                              ]
-                            }
-                          ]
-                        }
-                      },
-                      {
-                        "key": {
-                          "symbol": "min_output"
-                        },
-                        "val": {
-                          "i128": {
-                            "hi": 0,
-                            "lo": 900
-                          }
-                        }
-                      }
-                    ]
-                  }
-                },
-                {
-                  "key": {
-                    "symbol": "valid_until"
-                  },
-                  "val": {
-                    "u64": 120
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
-      "failed_call": false
-    },
-    {
-      "event": {
-        "ext": "v0",
-        "contract_id": null,
-        "type_": "diagnostic",
-        "body": {
-          "v0": {
-            "topics": [
-              {
-                "symbol": "fn_call"
-              },
-              {
-                "bytes": "0000000000000000000000000000000000000000000000000000000000000001"
-              },
-              {
-                "symbol": "execute_swap"
+                "symbol": "execute"
               }
             ],
             "data": {
@@ -1473,7 +1063,49 @@
     {
       "event": {
         "ext": "v0",
-        "contract_id": "0000000000000000000000000000000000000000000000000000000000000001",
+        "contract_id": "0000000000000000000000000000000000000000000000000000000000000003",
+        "type_": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "StellarRoute"
+              },
+              {
+                "symbol": "exe_req"
+              },
+              {
+                "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK3IM"
+              }
+            ],
+            "data": {
+              "vec": [
+                {
+                  "i128": {
+                    "hi": 0,
+                    "lo": 1000
+                  }
+                },
+                {
+                  "u32": 1
+                },
+                {
+                  "u64": 100
+                },
+                {
+                  "u32": 0
+                }
+              ]
+            }
+          }
+        }
+      },
+      "failed_call": false
+    },
+    {
+      "event": {
+        "ext": "v0",
+        "contract_id": "0000000000000000000000000000000000000000000000000000000000000003",
         "type_": "diagnostic",
         "body": {
           "v0": {
@@ -1533,7 +1165,7 @@
     {
       "event": {
         "ext": "v0",
-        "contract_id": "0000000000000000000000000000000000000000000000000000000000000001",
+        "contract_id": "0000000000000000000000000000000000000000000000000000000000000003",
         "type_": "diagnostic",
         "body": {
           "v0": {
@@ -1612,7 +1244,7 @@
     {
       "event": {
         "ext": "v0",
-        "contract_id": "0000000000000000000000000000000000000000000000000000000000000001",
+        "contract_id": "0000000000000000000000000000000000000000000000000000000000000003",
         "type_": "diagnostic",
         "body": {
           "v0": {
@@ -1672,7 +1304,7 @@
     {
       "event": {
         "ext": "v0",
-        "contract_id": "0000000000000000000000000000000000000000000000000000000000000001",
+        "contract_id": "0000000000000000000000000000000000000000000000000000000000000003",
         "type_": "contract",
         "body": {
           "v0": {
@@ -1712,7 +1344,7 @@
     {
       "event": {
         "ext": "v0",
-        "contract_id": "0000000000000000000000000000000000000000000000000000000000000001",
+        "contract_id": "0000000000000000000000000000000000000000000000000000000000000003",
         "type_": "contract",
         "body": {
           "v0": {
@@ -1851,7 +1483,7 @@
     {
       "event": {
         "ext": "v0",
-        "contract_id": "0000000000000000000000000000000000000000000000000000000000000001",
+        "contract_id": "0000000000000000000000000000000000000000000000000000000000000003",
         "type_": "diagnostic",
         "body": {
           "v0": {
@@ -1860,7 +1492,7 @@
                 "symbol": "fn_return"
               },
               {
-                "symbol": "execute_swap"
+                "symbol": "execute"
               }
             ],
             "data": {

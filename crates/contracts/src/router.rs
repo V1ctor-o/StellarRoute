@@ -153,7 +153,10 @@ impl StellarRoute {
         let num_recipients = config.recipients.len() as usize;
 
         for (i, rec) in config.recipients.iter().enumerate() {
-            let mut amount = (total_balance * rec.share_bps as i128) / 10000;
+            let mut amount = (total_balance
+                .checked_mul(rec.share_bps as i128)
+                .unwrap_or(i128::MAX))
+                / 10000;
 
             // Add rounding dust to treasury or last recipient
             if (found_treasury && i == treasury_idx) || (!found_treasury && i == num_recipients - 1)
@@ -162,7 +165,7 @@ impl StellarRoute {
             }
 
             if amount > 0 {
-                remaining_dust -= amount;
+                remaining_dust = remaining_dust.saturating_sub(amount);
 
                 if rec.label == symbol_short!("burn") {
                     match asset {
@@ -222,7 +225,9 @@ impl StellarRoute {
         e.storage().persistent().set(&key, &true);
         storage::extend_pool_ttl(&e, &pool);
 
-        let new_count = storage::get_pool_count(&e) + 1;
+        let new_count = storage::get_pool_count(&e)
+            .checked_add(1)
+            .unwrap_or_else(|| panic!("pool count overflow"));
         storage::set_pool_count(&e, new_count);
         storage::add_to_pool_list(&e, &pool);
 
@@ -576,16 +581,17 @@ impl StellarRoute {
             return Err(ContractError::InvalidRoute);
         }
 
-        let num_hops = route.hops.len() as u32;
+        let num_hops = route.hops.len();
         if num_hops > MAX_HOPS {
             return Err(ContractError::InvalidRoute);
         }
 
         // Estimate CPU: base + per-hop + CCI overhead
-        let estimated_cpu = (BASE_CPU_PER_HOP * num_hops as u64) + (CCI_OVERHEAD * num_hops as u64);
+        let estimated_cpu = (BASE_CPU_PER_HOP.saturating_mul(num_hops as u64))
+            .saturating_add(CCI_OVERHEAD.saturating_mul(num_hops as u64));
 
         // Storage reads: 1 instance config + num_hops pool checks + 1 nonce
-        let storage_reads = 1 + num_hops + 1;
+        let storage_reads = 1u32.saturating_add(num_hops).saturating_add(1);
 
         // Storage writes: 1 nonce update
         let storage_writes = 1;
@@ -607,22 +613,10 @@ impl StellarRoute {
 
     /// Public entry point for users to get quotes
     pub fn get_quote(e: Env, amount_in: i128, route: Route) -> Result<QuoteResult, ContractError> {
-        if amount_in <= 0 || route.hops.is_empty() || route.hops.len() > MAX_HOPS {
+        if amount_in <= 0 {
             return Err(ContractError::InvalidRoute);
         }
-        // Validate every asset in the route is on the allowlist.
-        tokens::validate_route_assets(&e, &route)?;
-
-        // Pre-allocate with known capacity to avoid reallocation
-        let mut pools = Vec::new(&e);
-        for i in 0..route.hops.len() {
-            pools.push_back(route.hops.get(i).unwrap().pool.clone());
-        }
-
-        // Batch check all pools at once
-        if !batch_check_pools(&e, &pools) {
-            return Err(ContractError::PoolNotSupported);
-        }
+        Self::validate_route_internal(&e, &route)?;
 
         let mut current_amount = amount_in;
         let mut total_impact_bps: u32 = 0;
@@ -649,16 +643,23 @@ impl StellarRoute {
         }
 
         let fee_rate = get_fee_rate(&e);
-        let fee_amount = (current_amount * fee_rate as i128) / 10000;
-        let final_output = current_amount - fee_amount;
+        let fee_amount = (current_amount
+            .checked_mul(fee_rate as i128)
+            .ok_or(ContractError::Overflow)?)
+            / 10000;
+        let final_output = current_amount
+            .checked_sub(fee_amount)
+            .ok_or(ContractError::Overflow)?;
 
-        Ok(QuoteResult {
+        let quote = QuoteResult {
             expected_output: final_output,
             price_impact_bps: total_impact_bps,
             fee_amount,
             route: route.clone(),
-            valid_until: (e.ledger().sequence() + 120) as u64,
-        })
+            valid_until: (e.ledger().sequence() as u64).saturating_add(120),
+        };
+
+        Ok(quote)
     }
 
     pub fn execute_swap(
@@ -681,6 +682,28 @@ impl StellarRoute {
         Self::execute_swap_internal(&e, &sender, &params)
     }
 
+    /// Interface alias for external integrators: execute a validated route.
+    pub fn execute(
+        e: Env,
+        sender: Address,
+        params: SwapParams,
+    ) -> Result<SwapResult, ContractError> {
+        events::execution_requested(
+            &e,
+            sender.clone(),
+            params.amount_in,
+            params.route.hops.len(),
+            params.deadline,
+        );
+
+        let result = Self::execute_swap(e.clone(), sender.clone(), params);
+        if let Err(err) = result {
+            events::execution_failed(&e, sender, err as u32);
+            return Err(err);
+        }
+        result
+    }
+
     // --- Internal swap execution (shared by execute_swap and reveal_and_execute) ---
 
     fn execute_swap_internal(
@@ -688,6 +711,20 @@ impl StellarRoute {
         sender: &Address,
         params: &SwapParams,
     ) -> Result<SwapResult, ContractError> {
+        if params.amount_in <= 0 {
+            return Err(ContractError::InvalidAmount);
+        }
+        if params.min_amount_out < 0 || params.route.min_output < 0 {
+            return Err(ContractError::InvalidAmount);
+        }
+
+        if params.recipient == e.current_contract_address() {
+            return Err(ContractError::InvalidRecipient);
+        }
+        if params.recipient != *sender {
+            params.recipient.require_auth();
+        }
+
         // 1. Deadline check
         if e.ledger().sequence() as u64 > params.deadline {
             return Err(ContractError::DeadlineExceeded);
@@ -701,6 +738,14 @@ impl StellarRoute {
         // 3. Route validation
         if params.route.hops.is_empty() || params.route.hops.len() > 4 {
             return Err(ContractError::InvalidRoute);
+        }
+
+        // Ensure pool support before any transfers for fail-fast safety.
+        for i in 0..params.route.hops.len() {
+            let hop = params.route.hops.get(i).unwrap();
+            if !storage::is_supported_pool(e, hop.pool.clone()) {
+                return Err(ContractError::PoolNotSupported);
+            }
         }
 
         // 4. Rate limiting (if MEV config is set)
@@ -779,10 +824,6 @@ impl StellarRoute {
         for i in 0..params.route.hops.len() {
             let hop = params.route.hops.get(i).unwrap();
 
-            if !storage::is_supported_pool(e, hop.pool.clone()) {
-                return Err(ContractError::PoolNotSupported);
-            }
-
             let call_result = e.try_invoke_contract::<i128, soroban_sdk::Error>(
                 &hop.pool,
                 &symbol_short!("swap"),
@@ -804,8 +845,13 @@ impl StellarRoute {
 
         // 8. Calculate fees
         let fee_rate = get_fee_rate(e);
-        let fee_amount = (current_input_amount * fee_rate as i128) / 10000;
-        let final_output = current_input_amount - fee_amount;
+        let fee_amount = (current_input_amount
+            .checked_mul(fee_rate as i128)
+            .ok_or(ContractError::Overflow)?)
+            / 10000;
+        let final_output = current_input_amount
+            .checked_sub(fee_amount)
+            .ok_or(ContractError::Overflow)?;
 
         // 9. Enhanced slippage guards
         // max_price_impact_bps check
@@ -816,7 +862,12 @@ impl StellarRoute {
         // max_execution_spread_bps check (compare actual output vs expected)
         if params.max_execution_spread_bps > 0 && params.route.estimated_output > 0 {
             let spread = if final_output < params.route.estimated_output {
-                ((params.route.estimated_output - final_output) * 10000)
+                let diff = params
+                    .route
+                    .estimated_output
+                    .checked_sub(final_output)
+                    .ok_or(ContractError::Overflow)?;
+                diff.checked_mul(10000).ok_or(ContractError::Overflow)?
                     / params.route.estimated_output
             } else {
                 0
@@ -826,8 +877,13 @@ impl StellarRoute {
             }
         }
 
-        // Standard slippage check
-        if final_output < params.min_amount_out {
+        // Standard slippage check: enforce both request and route minimums.
+        let required_min_out = if params.route.min_output > params.min_amount_out {
+            params.route.min_output
+        } else {
+            params.min_amount_out
+        };
+        if final_output < required_min_out {
             return Err(ContractError::SlippageExceeded);
         }
 
@@ -847,8 +903,8 @@ impl StellarRoute {
             if let Ok(Ok(post)) = post_result {
                 // Check that reserves changed in the expected direction
                 // For a swap: one reserve goes up, one goes down
-                let delta_0 = post.0 - pre.0;
-                let delta_1 = post.1 - pre.1;
+                let delta_0 = post.0.checked_sub(pre.0).unwrap_or(i128::MIN);
+                let delta_1 = post.1.checked_sub(pre.1).unwrap_or(i128::MIN);
                 // If both reserves moved in the same direction, something is wrong
                 if delta_0 > 0 && delta_1 > 0 {
                     return Err(ContractError::ReserveManipulationDetected);
@@ -867,7 +923,11 @@ impl StellarRoute {
         }
 
         // 12. Transfer output to recipient
-        let last_hop = params.route.hops.get(params.route.hops.len() - 1).unwrap();
+        let last_hop = params
+            .route
+            .hops
+            .get(params.route.hops.len().saturating_sub(1))
+            .unwrap();
 
         transfer_asset(
             e,
@@ -893,18 +953,18 @@ impl StellarRoute {
         }
         // ──────────────────────────────────────────────────────────────────────
 
-        increment_nonce(&e, sender.clone());
-        storage::add_swap_volume(&e, params.amount_in);
+        increment_nonce(e, sender.clone());
+        storage::add_swap_volume(e, params.amount_in);
 
         // Extend TTLs for pools used in this route
         for i in 0..params.route.hops.len() {
             let hop = params.route.hops.get(i).unwrap();
-            storage::extend_pool_ttl(&e, &hop.pool);
+            storage::extend_pool_ttl(e, &hop.pool);
         }
-        extend_instance_ttl(&e);
+        extend_instance_ttl(e);
 
         // Check TTL health and emit warning if needed
-        Self::check_ttl_health(&e);
+        Self::check_ttl_health(e);
 
         // Emit compact event (use IDs instead of full structs where possible)
         events::swap_executed(
@@ -922,6 +982,27 @@ impl StellarRoute {
             route: params.route.clone(),
             executed_at: e.ledger().sequence() as u64,
         })
+    }
+
+    fn validate_route_internal(e: &Env, route: &Route) -> Result<(), ContractError> {
+        if route.hops.is_empty() || route.hops.len() > MAX_HOPS {
+            return Err(ContractError::InvalidRoute);
+        }
+        if route.expires_at > 0 && (e.ledger().sequence() as u64) > route.expires_at {
+            return Err(ContractError::RouteExpired);
+        }
+
+        // Validate every asset in the route is on the allowlist.
+        tokens::validate_route_assets(e, route)?;
+
+        let mut pools = Vec::new(e);
+        for i in 0..route.hops.len() {
+            pools.push_back(route.hops.get(i).unwrap().pool.clone());
+        }
+        if !batch_check_pools(e, &pools) {
+            return Err(ContractError::PoolNotSupported);
+        }
+        Ok(())
     }
 
     // --- TTL Management ---

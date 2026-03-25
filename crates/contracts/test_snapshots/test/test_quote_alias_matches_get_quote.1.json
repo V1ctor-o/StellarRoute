@@ -24,6 +24,7 @@
         }
       ]
     ],
+    [],
     []
   ],
   "ledger": {
@@ -476,7 +477,7 @@
                 {
                   "i128": {
                     "hi": 0,
-                    "lo": 1000000
+                    "lo": 1000
                   }
                 },
                 {
@@ -506,54 +507,6 @@
                       },
                       "val": {
                         "vec": [
-                          {
-                            "map": [
-                              {
-                                "key": {
-                                  "symbol": "destination"
-                                },
-                                "val": {
-                                  "vec": [
-                                    {
-                                      "symbol": "Native"
-                                    }
-                                  ]
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "pool"
-                                },
-                                "val": {
-                                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "pool_type"
-                                },
-                                "val": {
-                                  "vec": [
-                                    {
-                                      "symbol": "AmmConstProd"
-                                    }
-                                  ]
-                                }
-                              },
-                              {
-                                "key": {
-                                  "symbol": "source"
-                                },
-                                "val": {
-                                  "vec": [
-                                    {
-                                      "symbol": "Native"
-                                    }
-                                  ]
-                                }
-                              }
-                            ]
-                          },
                           {
                             "map": [
                               {
@@ -662,7 +615,7 @@
                 {
                   "i128": {
                     "hi": 0,
-                    "lo": 1000000
+                    "lo": 1000
                   }
                 }
               ]
@@ -690,80 +643,7 @@
             "data": {
               "i128": {
                 "hi": 0,
-                "lo": 990000
-              }
-            }
-          }
-        }
-      },
-      "failed_call": false
-    },
-    {
-      "event": {
-        "ext": "v0",
-        "contract_id": "0000000000000000000000000000000000000000000000000000000000000003",
-        "type_": "diagnostic",
-        "body": {
-          "v0": {
-            "topics": [
-              {
-                "symbol": "fn_call"
-              },
-              {
-                "bytes": "0000000000000000000000000000000000000000000000000000000000000004"
-              },
-              {
-                "symbol": "adapter_quote"
-              }
-            ],
-            "data": {
-              "vec": [
-                {
-                  "vec": [
-                    {
-                      "symbol": "Native"
-                    }
-                  ]
-                },
-                {
-                  "vec": [
-                    {
-                      "symbol": "Native"
-                    }
-                  ]
-                },
-                {
-                  "i128": {
-                    "hi": 0,
-                    "lo": 990000
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
-      "failed_call": false
-    },
-    {
-      "event": {
-        "ext": "v0",
-        "contract_id": "0000000000000000000000000000000000000000000000000000000000000004",
-        "type_": "diagnostic",
-        "body": {
-          "v0": {
-            "topics": [
-              {
-                "symbol": "fn_return"
-              },
-              {
-                "symbol": "adapter_quote"
-              }
-            ],
-            "data": {
-              "i128": {
-                "hi": 0,
-                "lo": 980100
+                "lo": 990
               }
             }
           }
@@ -791,26 +671,26 @@
                 {
                   "i128": {
                     "hi": 0,
-                    "lo": 1000000
+                    "lo": 1000
                   }
                 },
                 {
                   "i128": {
                     "hi": 0,
-                    "lo": 977160
+                    "lo": 988
                   }
                 },
                 {
                   "i128": {
                     "hi": 0,
-                    "lo": 2940
+                    "lo": 2
                   }
                 },
                 {
-                  "u32": 10
+                  "u32": 5
                 },
                 {
-                  "u32": 2
+                  "u32": 1
                 },
                 {
                   "u64": 120
@@ -849,7 +729,7 @@
                   "val": {
                     "i128": {
                       "hi": 0,
-                      "lo": 977160
+                      "lo": 988
                     }
                   }
                 },
@@ -860,7 +740,7 @@
                   "val": {
                     "i128": {
                       "hi": 0,
-                      "lo": 2940
+                      "lo": 2
                     }
                   }
                 },
@@ -869,7 +749,7 @@
                     "symbol": "price_impact_bps"
                   },
                   "val": {
-                    "u32": 10
+                    "u32": 5
                   }
                 },
                 {
@@ -950,7 +830,368 @@
                                   }
                                 }
                               ]
-                            },
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "key": {
+                          "symbol": "min_output"
+                        },
+                        "val": {
+                          "i128": {
+                            "hi": 0,
+                            "lo": 900
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "valid_until"
+                  },
+                  "val": {
+                    "u64": 120
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "failed_call": false
+    },
+    {
+      "event": {
+        "ext": "v0",
+        "contract_id": null,
+        "type_": "diagnostic",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "fn_call"
+              },
+              {
+                "bytes": "0000000000000000000000000000000000000000000000000000000000000003"
+              },
+              {
+                "symbol": "quote"
+              }
+            ],
+            "data": {
+              "vec": [
+                {
+                  "i128": {
+                    "hi": 0,
+                    "lo": 1000
+                  }
+                },
+                {
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "estimated_output"
+                      },
+                      "val": {
+                        "i128": {
+                          "hi": 0,
+                          "lo": 990
+                        }
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "expires_at"
+                      },
+                      "val": {
+                        "u64": 99999
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "hops"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "map": [
+                              {
+                                "key": {
+                                  "symbol": "destination"
+                                },
+                                "val": {
+                                  "vec": [
+                                    {
+                                      "symbol": "Native"
+                                    }
+                                  ]
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "pool"
+                                },
+                                "val": {
+                                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "pool_type"
+                                },
+                                "val": {
+                                  "vec": [
+                                    {
+                                      "symbol": "AmmConstProd"
+                                    }
+                                  ]
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "source"
+                                },
+                                "val": {
+                                  "vec": [
+                                    {
+                                      "symbol": "Native"
+                                    }
+                                  ]
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "min_output"
+                      },
+                      "val": {
+                        "i128": {
+                          "hi": 0,
+                          "lo": 900
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      },
+      "failed_call": false
+    },
+    {
+      "event": {
+        "ext": "v0",
+        "contract_id": "0000000000000000000000000000000000000000000000000000000000000003",
+        "type_": "diagnostic",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "fn_call"
+              },
+              {
+                "bytes": "0000000000000000000000000000000000000000000000000000000000000004"
+              },
+              {
+                "symbol": "adapter_quote"
+              }
+            ],
+            "data": {
+              "vec": [
+                {
+                  "vec": [
+                    {
+                      "symbol": "Native"
+                    }
+                  ]
+                },
+                {
+                  "vec": [
+                    {
+                      "symbol": "Native"
+                    }
+                  ]
+                },
+                {
+                  "i128": {
+                    "hi": 0,
+                    "lo": 1000
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "failed_call": false
+    },
+    {
+      "event": {
+        "ext": "v0",
+        "contract_id": "0000000000000000000000000000000000000000000000000000000000000004",
+        "type_": "diagnostic",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "fn_return"
+              },
+              {
+                "symbol": "adapter_quote"
+              }
+            ],
+            "data": {
+              "i128": {
+                "hi": 0,
+                "lo": 990
+              }
+            }
+          }
+        }
+      },
+      "failed_call": false
+    },
+    {
+      "event": {
+        "ext": "v0",
+        "contract_id": "0000000000000000000000000000000000000000000000000000000000000003",
+        "type_": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "StellarRoute"
+              },
+              {
+                "symbol": "quote"
+              }
+            ],
+            "data": {
+              "vec": [
+                {
+                  "i128": {
+                    "hi": 0,
+                    "lo": 1000
+                  }
+                },
+                {
+                  "i128": {
+                    "hi": 0,
+                    "lo": 988
+                  }
+                },
+                {
+                  "i128": {
+                    "hi": 0,
+                    "lo": 2
+                  }
+                },
+                {
+                  "u32": 5
+                },
+                {
+                  "u32": 1
+                },
+                {
+                  "u64": 120
+                },
+                {
+                  "u32": 0
+                }
+              ]
+            }
+          }
+        }
+      },
+      "failed_call": false
+    },
+    {
+      "event": {
+        "ext": "v0",
+        "contract_id": "0000000000000000000000000000000000000000000000000000000000000003",
+        "type_": "diagnostic",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "fn_return"
+              },
+              {
+                "symbol": "quote"
+              }
+            ],
+            "data": {
+              "map": [
+                {
+                  "key": {
+                    "symbol": "expected_output"
+                  },
+                  "val": {
+                    "i128": {
+                      "hi": 0,
+                      "lo": 988
+                    }
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "fee_amount"
+                  },
+                  "val": {
+                    "i128": {
+                      "hi": 0,
+                      "lo": 2
+                    }
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "price_impact_bps"
+                  },
+                  "val": {
+                    "u32": 5
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "route"
+                  },
+                  "val": {
+                    "map": [
+                      {
+                        "key": {
+                          "symbol": "estimated_output"
+                        },
+                        "val": {
+                          "i128": {
+                            "hi": 0,
+                            "lo": 990
+                          }
+                        }
+                      },
+                      {
+                        "key": {
+                          "symbol": "expires_at"
+                        },
+                        "val": {
+                          "u64": 99999
+                        }
+                      },
+                      {
+                        "key": {
+                          "symbol": "hops"
+                        },
+                        "val": {
+                          "vec": [
                             {
                               "map": [
                                 {
