@@ -75,7 +75,6 @@ pub async fn get_quote(
             "slippage_bps must be between 0 and 10000".to_string(),
         ));
     }
-
     let quote_type = match params.quote_type {
         crate::models::request::QuoteType::Sell => "sell",
         crate::models::request::QuoteType::Buy => "buy",
@@ -107,7 +106,12 @@ pub async fn get_quote(
         find_best_price(&state, &base_asset, &quote_asset, base_id, quote_id, amount).await?;
 
     let total = amount * price;
-    let timestamp = chrono::Utc::now().timestamp();
+    // Keep timestamps in milliseconds to match API docs and frontend staleness logic.
+    let timestamp = chrono::Utc::now().timestamp_millis();
+    let ttl_seconds = u32::try_from(state.cache_policy.quote_ttl.as_secs()).ok();
+    let expires_at = i64::try_from(state.cache_policy.quote_ttl.as_millis())
+        .ok()
+        .map(|ttl_ms| timestamp + ttl_ms);
 
     let response = QuoteResponse {
         base_asset: asset_path_to_info(&base_asset),
@@ -119,6 +123,9 @@ pub async fn get_quote(
         path,
         rationale,
         timestamp,
+        expires_at,
+        source_timestamp: None,
+        ttl_seconds,
     };
 
     // Cache the response (TTL: 2 seconds for quote data)
