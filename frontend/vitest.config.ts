@@ -10,6 +10,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "."),
+      "lucide-react": path.resolve(__dirname, "__mocks__/lucide-react.tsx"),
     },
   },
 });
