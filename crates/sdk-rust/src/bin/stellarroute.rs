@@ -3,8 +3,8 @@ use serde::Serialize;
 use std::ffi::OsStr;
 use std::num::NonZeroUsize;
 use stellarroute_sdk::{
-    ApiErrorCode, HealthResponse, OrderbookLevel, OrderbookResponse, PairsResponse, QuoteRequest,
-    QuoteResponse, QuoteType, SdkError, StellarRouteClient,
+    HealthResponse, OrderbookLevel, OrderbookResponse, PairsResponse, QuoteRequest, QuoteResponse,
+    QuoteType, SdkError, StellarRouteClient,
 };
 
 const EXIT_SUCCESS: i32 = 0;
@@ -606,8 +606,8 @@ fn exit_code_for_sdk_error(error: &SdkError) -> i32 {
         SdkError::InvalidConfig(_) => EXIT_CONFIG_ERROR,
         SdkError::Http(_)
         | SdkError::Api { .. }
-        | SdkError::RateLimited { .. }
-        | SdkError::Deserialization(_) => EXIT_RUNTIME_ERROR,
+        | SdkError::Deserialization(_)
+        | SdkError::RateLimited { .. } => EXIT_RUNTIME_ERROR,
     }
 }
 
@@ -644,7 +644,7 @@ fn parse_asset(value: &str) -> Result<String, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use stellarroute_sdk::{AssetInfo, PathStep, TradingPair};
+    use stellarroute_sdk::{ApiErrorCode, AssetInfo, PathStep, TradingPair};
 
     #[test]
     fn clap_help_is_well_formed() {
