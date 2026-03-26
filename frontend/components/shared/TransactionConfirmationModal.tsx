@@ -25,6 +25,7 @@ import {
   Info,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { getAssetCode, parseSource } from "@/lib/route-helpers";
 import { cn } from "@/lib/utils";
 
 interface TransactionConfirmationModalProps {
@@ -174,7 +175,7 @@ export function TransactionConfirmationModal({
               {(isHighPriceImpact || isHighSlippage || isLowSlippage) && (
                 <div className="space-y-2">
                   {isSeverePriceImpact ? (
-                    <div className="flex gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-xs text-left">
+                    <div className="flex gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-xs">
                       <TriangleAlert className="w-4 h-4 shrink-0" />
                       <div>
                         <p className="font-bold">Very High Price Impact ({priceImpact})</p>
@@ -182,7 +183,7 @@ export function TransactionConfirmationModal({
                       </div>
                     </div>
                   ) : isHighPriceImpact ? (
-                    <div className="flex gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs text-left">
+                    <div className="flex gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs">
                       <AlertCircle className="w-4 h-4 shrink-0" />
                       <div>
                         <p className="font-bold">High Price Impact ({priceImpact})</p>
@@ -192,7 +193,7 @@ export function TransactionConfirmationModal({
                   ) : null}
 
                   {isHighSlippage && (
-                    <div className="flex gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs text-left">
+                    <div className="flex gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs">
                       <Info className="w-4 h-4 shrink-0" />
                       <div>
                         <p className="font-medium text-amber-700 dark:text-amber-300">High Slippage Tolerance ({slippageTolerancePct}%)</p>
@@ -202,7 +203,7 @@ export function TransactionConfirmationModal({
                   )}
 
                   {isLowSlippage && (
-                    <div className="flex gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs text-left">
+                    <div className="flex gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs">
                       <Info className="w-4 h-4 shrink-0" />
                       <div>
                         <p className="font-medium">Very Low Slippage</p>
@@ -252,8 +253,8 @@ export function TransactionConfirmationModal({
                   <span>{networkFee} XLM</span>
                 </div>
                 <div className="flex flex-col gap-1 pt-2">
-                  <RouteVisualization
-                    path={routePath}
+                  <RouteVisualization 
+                    path={routePath} 
                     className="border-none shadow-none bg-transparent p-0"
                   />
                 </div>

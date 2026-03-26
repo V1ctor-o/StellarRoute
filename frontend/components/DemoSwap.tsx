@@ -22,13 +22,13 @@ import { useSettings } from "@/components/providers/settings-provider";
 
 import type { PathStep, TradingPair } from "@/types";
 import { TransactionStatus } from "@/types/transaction";
-import { toast } from "sonner";
-import type { PathStep, TradingPair, PriceQuote } from "@/types";
 import {
   formatMaxAmountForInput,
   maxDecimalsForSellAsset,
   parseSellAmount,
 } from "@/lib/amount-input";
+import { QUOTE_AUTO_REFRESH_INTERVAL_MS } from "@/lib/quote-stale";
+import { TradeRouteDisplay } from "@/components/shared/TradeRouteDisplay";
 
 const MOCK_WALLET = "GBSU...XYZ9";
 
@@ -431,6 +431,15 @@ export function DemoSwap() {
               </p>
             )}
           </div>
+        </div>
+        
+        {numericForQuote && (
+          <TradeRouteDisplay 
+            quote={quote || null} 
+            isLoading={quoteLoading} 
+            error={quoteError?.message}
+          />
+        )}
 
           <div className="flex flex-wrap items-center gap-3">
             <Button
