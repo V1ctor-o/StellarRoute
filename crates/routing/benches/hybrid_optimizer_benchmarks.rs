@@ -2,7 +2,9 @@
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use std::time::Duration;
-use stellarroute_routing::{HybridOptimizer, LiquidityEdge, PathfinderConfig, PolicyPresets};
+use stellarroute_routing::{
+    HybridOptimizer, LiquidityEdge, PathfinderConfig, PolicyPresets, RoutingPolicy,
+};
 
 fn create_test_edges() -> Vec<LiquidityEdge> {
     vec![
@@ -73,6 +75,7 @@ fn bench_policy_comparison(c: &mut Criterion) {
                         black_box(to),
                         black_box(&edges),
                         black_box(amount),
+                        black_box(&RoutingPolicy::default()),
                     ))
                 })
             },
@@ -107,6 +110,7 @@ fn bench_latency_vs_quality(c: &mut Criterion) {
                         black_box(to),
                         black_box(&edges),
                         black_box(amount),
+                        black_box(&RoutingPolicy::default()),
                     ))
                 })
             },
