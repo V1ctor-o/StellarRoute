@@ -10,6 +10,7 @@ pub mod load_test;
 pub mod middleware;
 pub mod models;
 pub mod regions;
+pub mod replay;
 pub mod routes;
 pub mod server;
 pub mod state;

@@ -10,6 +10,10 @@ repository.workspace = true
 name = "stellarroute-api"
 path = "src/bin/stellarroute-api.rs"
 
+[[bin]]
+name = "replay-cli"
+path = "src/bin/replay_cli.rs"
+
 [dependencies]
 # Workspace dependencies
 tokio.workspace = true
@@ -39,6 +43,9 @@ utoipa-swagger-ui = { version = "6", features = ["axum"] }
 
 # Concurrency utilities
 parking_lot = "0.12"
+
+# CLI argument parsing
+clap = { version = "4", features = ["derive"] }
 
 [dev-dependencies]
 tokio-test = "0.4"

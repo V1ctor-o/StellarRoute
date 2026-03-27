@@ -7,6 +7,7 @@ use tokio::sync::Mutex;
 
 use crate::cache::{CacheManager, SingleFlight};
 use crate::models::QuoteResponse;
+use crate::replay::capture::CaptureHook;
 use crate::worker::{JobQueue, RouteWorkerPool, WorkerPoolConfig};
 
 /// Cache policy configuration
@@ -93,6 +94,8 @@ pub struct AppState {
     pub worker_pool: Arc<RouteWorkerPool>,
     /// Single-flight manager for quotes to prevent stampedes
     pub quote_single_flight: Arc<SingleFlight<crate::error::Result<QuoteResponse>>>,
+    /// Optional replay capture hook (None when REPLAY_CAPTURE_ENABLED=false)
+    pub replay_capture: Option<Arc<CaptureHook>>,
 }
 
 impl AppState {
@@ -113,6 +116,7 @@ impl AppState {
             cache_metrics: Arc::new(CacheMetrics::default()),
             worker_pool,
             quote_single_flight: Arc::new(SingleFlight::new()),
+            replay_capture: None,
         }
     }
 
@@ -137,6 +141,7 @@ impl AppState {
             cache_metrics: Arc::new(CacheMetrics::default()),
             worker_pool,
             quote_single_flight: Arc::new(SingleFlight::new()),
+            replay_capture: None,
         }
     }
 
@@ -155,5 +160,12 @@ impl AppState {
     /// Check if caching is enabled
     pub fn has_cache(&self) -> bool {
         self.cache.is_some()
+    }
+
+    /// Attach a replay capture hook to this state.
+    /// Returns a new `AppState` with the hook set.
+    pub fn with_replay_capture(mut self, hook: CaptureHook) -> Self {
+        self.replay_capture = Some(Arc::new(hook));
+        self
     }
 }

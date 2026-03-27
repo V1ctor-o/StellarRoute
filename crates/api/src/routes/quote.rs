@@ -175,7 +175,7 @@ async fn get_quote_inner(
             let compute_res =
                 find_best_price(&state, &base_asset, &quote_asset, base_id, quote_id, amount).await;
 
-            let (price, path, rationale, api_diagnostics, freshness_outcome, fresh_timestamps) =
+            let (price, path, rationale, api_diagnostics, freshness_outcome, fresh_timestamps, liquidity_snapshot) =
                 match compute_res {
                     Ok(res) => res,
                     Err(e) => return Arc::new(Err(e)),
@@ -234,6 +234,29 @@ async fn get_quote_inner(
                         .set(&quote_cache_key, &response, state.cache_policy.quote_ttl)
                         .await;
                 }
+            }
+
+            // [Replay] Non-blocking capture — fire-and-forget, zero latency impact
+            if let Some(hook) = &state.replay_capture {
+                use stellarroute_routing::health::scorer::HealthScoringConfig;
+                let hc = HealthScoringConfig::default();
+                let health_config = crate::replay::artifact::HealthConfigSnapshot {
+                    freshness_threshold_secs_sdex: hc.freshness_threshold_secs.sdex,
+                    freshness_threshold_secs_amm: hc.freshness_threshold_secs.amm,
+                    staleness_threshold_secs: hc.staleness_threshold_secs,
+                    min_tvl_threshold_e7: hc.min_tvl_threshold_e7,
+                };
+                hook.capture(
+                    &base,
+                    &quote,
+                    &format!("{:.7}", amount),
+                    slippage_bps,
+                    quote_type,
+                    liquidity_snapshot,
+                    health_config,
+                    &response,
+                    None,
+                );
             }
 
             Arc::new(Ok(response))
@@ -306,7 +329,7 @@ pub async fn get_route(
     let quote_id = find_asset_id(&state, &quote_asset).await?;
 
     // For route endpoint, we reuse the same logic but return a simplified response
-    let (_, path, _, _, _, _) =
+    let (_, path, _, _, _, _, _) =
         find_best_price(&state, &base_asset, &quote_asset, base_id, quote_id, amount).await?;
 
     let response = crate::models::RouteResponse {
@@ -329,6 +352,7 @@ type FindBestPriceResult = (
     ApiExclusionDiagnostics,
     FreshnessOutcome,
     Vec<chrono::DateTime<chrono::Utc>>,
+    Vec<crate::replay::artifact::LiquidityCandidate>, // snapshot for replay capture
 );
 
 #[tracing::instrument(
@@ -554,6 +578,17 @@ async fn find_best_price(
         .filter_map(|&idx| scorer_inputs[idx].last_updated_at)
         .collect();
 
+    // Build liquidity snapshot for replay capture (all candidates, not just fresh)
+    let liquidity_snapshot: Vec<crate::replay::artifact::LiquidityCandidate> = candidates
+        .iter()
+        .map(|c| crate::replay::artifact::LiquidityCandidate {
+            venue_type: c.venue_type.clone(),
+            venue_ref: c.venue_ref.clone(),
+            price: format!("{:.7}", c.price),
+            available_amount: format!("{:.7}", c.available_amount),
+        })
+        .collect();
+
     let path = vec![PathStep {
         from_asset: asset_path_to_info(base),
         to_asset: asset_path_to_info(quote),
@@ -568,6 +603,7 @@ async fn find_best_price(
         api_diagnostics,
         freshness_outcome,
         fresh_timestamps,
+        liquidity_snapshot,
     ))
 }
 
