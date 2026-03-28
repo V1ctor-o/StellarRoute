@@ -7,6 +7,7 @@ use crate::policy::RoutingPolicy;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Instant;
+use tracing::instrument;
 
 /// Configuration for optimization policies
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -196,6 +197,13 @@ impl HybridOptimizer {
     }
 
     /// Find optimal routes using hybrid scoring
+    #[instrument(skip(self, edges, routing_policy), fields(
+        route.from = %from,
+        route.to = %to,
+        route.amount_in = amount_in,
+        route.paths_evaluated = tracing::field::Empty,
+        route.compute_time_ms = tracing::field::Empty
+    ))]
     pub fn find_optimal_routes(
         &self,
         from: &str,
@@ -207,7 +215,6 @@ impl HybridOptimizer {
         let start_time = Instant::now();
         let policy = self.active_policy();
 
-        // Find all possible paths
         let paths = self
             .pathfinder
             .find_paths(from, to, edges, amount_in, routing_policy)?;
@@ -216,12 +223,10 @@ impl HybridOptimizer {
             return Err(RoutingError::NoRoute(from.to_string(), to.to_string()));
         }
 
-        // Calculate metrics for each path
         let mut scored_paths = Vec::new();
         for path in &paths {
             let metrics = self.calculate_route_metrics(path, edges, amount_in)?;
 
-            // Check if route meets policy constraints
             if metrics.impact_bps <= policy.max_impact_bps
                 && metrics.compute_time_us <= policy.max_compute_time_ms * 1000
             {
@@ -236,19 +241,24 @@ impl HybridOptimizer {
             ));
         }
 
-        // Sort by score (descending)
         scored_paths.sort_by(|a, b| b.1.score.partial_cmp(&a.1.score).unwrap());
 
         let (selected_path, selected_metrics) = scored_paths[0].clone();
         let alternatives: Vec<(SwapPath, RouteMetrics)> =
             scored_paths.into_iter().skip(1).collect();
 
+        let total_compute_time_ms = start_time.elapsed().as_millis() as u64;
+
+        let span = tracing::Span::current();
+        span.record("route.paths_evaluated", paths.len());
+        span.record("route.compute_time_ms", total_compute_time_ms);
+
         Ok(OptimizerDiagnostics {
             selected_path,
             metrics: selected_metrics,
             alternatives,
             policy: policy.clone(),
-            total_compute_time_ms: start_time.elapsed().as_millis() as u64,
+            total_compute_time_ms,
         })
     }
 
