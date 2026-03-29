@@ -1,551 +1,70 @@
-"use client";
+// frontend/components/DemoSwap.tsx
+import { useEffect, useRef } from "react";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2, RefreshCw } from "lucide-react";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+// Placeholder functions — replace with your actual logic if they exist
+const swapBaseQuote = () => {
+  console.log("Base/Quote swapped");
+};
 
-import { TransactionConfirmationModal, type BatchSwapItem } from "@/components/shared/TransactionConfirmationModal";
-import { usePairs } from "@/hooks/useApi";
-import { useQuoteRefresh } from "@/hooks/useQuoteRefresh";
-import { useTransactionHistory } from "@/hooks/useTransactionHistory";
-import { useWallet } from "@/components/providers/wallet-provider";
-import { useSettings } from "@/components/providers/settings-provider";
-import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+const refreshQuote = () => {
+  console.log("Quote refreshed");
+};
 
-import type { PathStep, TradingPair } from "@/types";
-import { TransactionStatus } from "@/types/transaction";
-
-import {
-  formatMaxAmountForInput,
-  maxDecimalsForSellAsset,
-} from "@/lib/amount-input";
-import { QUOTE_AUTO_REFRESH_INTERVAL_MS } from "@/lib/quote-stale";
-import { TradeRouteDisplay } from "@/components/shared/TradeRouteDisplay";
-import { SwapValidationSchema } from "@/lib/swap-validation";
-
-const MOCK_WALLET = "GBSU...XYZ9";
-
-function pairKey(p: TradingPair): string {
-  return `${p.base_asset}__${p.counter_asset}`;
-}
-
-const mockRoute: PathStep[] = [
-  {
-    from_asset: { asset_type: "native" },
-    to_asset: {
-      asset_type: "credit_alphanum4",
-      asset_code: "USDC",
-      asset_issuer: "GA5Z...",
-    },
-    price: "0.105",
-    source: "sdex",
-  },
-];
-
-export function DemoSwap() {
-  const { data: pairs, loading: pairsLoading, error: pairsError } = usePairs();
-  const { isConnected, stubSpendableBalance } = useWallet();
-  const { settings } = useSettings();
-  const { isOnline, isOffline } = useOnlineStatus();
-
-  const [selectedKey, setSelectedKey] = useState<string>("");
-  const [sellRaw, setSellRaw] = useState<string>("");
-  const [slippage, setSlippage] = useState<number | null>(0.5);
-
-  const [batch, setBatch] = useState<BatchSwapItem[]>([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [txStatus, setTxStatus] = useState<TransactionStatus | "review">(
-    "review",
-  );
-  const [errorMessage, setErrorMessage] = useState<string>();
-  const [txHash, setTxHash] = useState<string>();
-
-  const { addTransaction } = useTransactionHistory(MOCK_WALLET);
+export default function DemoSwap() {
+  const pairSelectorRef = useRef<HTMLSelectElement>(null);
 
   useEffect(() => {
-    if (!pairs?.length) return;
-    setSelectedKey((current: string) => {
-      if (current && pairs.some((p) => pairKey(p) === current)) {
-        return current;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeTag = document.activeElement?.tagName;
+
+      // Prevent shortcuts when typing in input/textarea or if a modal is open
+      const isModalOpen = document.body.classList.contains("modal-open"); // adjust if your modals set a different class
+      if (activeTag === "INPUT" || activeTag === "TEXTAREA" || isModalOpen) return;
+
+      // Ctrl + F → Focus pair selector
+      if (e.ctrlKey && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        pairSelectorRef.current?.focus();
       }
-      return pairKey(pairs[0]);
-    });
-  }, [pairs]);
 
-  const selectedPair = useMemo(
-    () => pairs?.find((p) => pairKey(p) === selectedKey) ?? null,
-    [pairs, selectedKey],
-  );
+      // Ctrl + S → Swap base/quote
+      if (e.ctrlKey && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        swapBaseQuote();
+      }
 
-  const sellMaxDecimals = selectedPair
-    ? maxDecimalsForSellAsset(
-      selectedPair.base_asset,
-      selectedPair.base_decimals,
-    )
-    : maxDecimalsForSellAsset("native");
-
-  const inputValidation = SwapValidationSchema.validate(
-    {
-      amount: sellRaw,
-      maxDecimals: sellMaxDecimals,
-      sellAssetId: selectedPair?.base_asset,
-      buyAssetId: selectedPair?.counter_asset,
-      slippage,
-    },
-    { mode: "input" },
-  );
-  const submitValidation = SwapValidationSchema.validate(
-    {
-      amount: sellRaw,
-      maxDecimals: sellMaxDecimals,
-      sellAssetId: selectedPair?.base_asset,
-      buyAssetId: selectedPair?.counter_asset,
-      slippage,
-    },
-    { mode: "submit" },
-  );
-
-  const parseResult = inputValidation.amountResult;
-
-  const numericForQuote = inputValidation.parsed.amount?.numeric;
-
-  const quoteBase = selectedPair?.base_asset ?? "";
-  const quoteCounter = selectedPair?.counter_asset ?? "";
-
-  const {
-    data: quote,
-    loading: quoteLoading,
-    error: quoteError,
-    refresh,
-    manualRefreshCoolingDown,
-    autoRefreshEnabled,
-    setAutoRefreshEnabled,
-    isStale,
-    isRecovering,
-    retryAttempt,
-  } = useQuoteRefresh(quoteBase, quoteCounter, numericForQuote, "sell", {
-    isOnline,
-  });
-
-  const refreshDisabled =
-    !isOnline || quoteLoading || manualRefreshCoolingDown || !numericForQuote;
-
-  const amountInputInvalid =
-    sellRaw.trim() !== "" &&
-    parseResult.status !== "ok" &&
-    parseResult.status !== "empty";
-
-  const maxButtonTitle = !isConnected
-    ? "Connect wallet to use your maximum balance"
-    : undefined;
-
-  const applyMax = useCallback(() => {
-    if (!isConnected || stubSpendableBalance == null) return;
-    setSellRaw(formatMaxAmountForInput(stubSpendableBalance, sellMaxDecimals));
-  }, [isConnected, stubSpendableBalance, sellMaxDecimals]);
-
-  const handleAddToBatch = () => {
-    if (parseResult.status !== "ok" || !selectedPair || !quote) {
-      toast.error("Valid quote required to add to batch.");
-      return;
-    }
-
-    const newItem: BatchSwapItem = {
-      fromAsset: selectedPair.base,
-      fromAmount: parseResult.normalized,
-      toAsset: selectedPair.counter,
-      toAmount: quote.total,
-      exchangeRate: quote.price,
-      priceImpact: priceImpactDisplay,
-      routePath: quote.path,
+      // Ctrl + R → Refresh quote
+      if (e.ctrlKey && e.key.toLowerCase() === "r") {
+        e.preventDefault();
+        refreshQuote();
+      }
     };
 
-    setBatch((prev) => [...prev, newItem]);
-    setSellRaw("");
-    toast.success("Added to batch", {
-      description: `${newItem.fromAmount} ${newItem.fromAsset} → ${newItem.toAmount} ${newItem.toAsset}`,
-    });
-  };
-  const handleSwapClick = () => {
-    if (!isOnline) {
-      toast.error("You are offline. Reconnect to continue.");
-      return;
-    }
-
-    if (!submitValidation.isValid) {
-      toast.error(submitValidation.issues[0]?.message ?? "Invalid swap inputs.");
-      return;
-    }
-
-    setTxStatus("review");
-    setErrorMessage(undefined);
-    setTxHash(undefined);
-    setIsModalOpen(true);
-  };
-
-  const handleConfirm = () => {
-    if (!isOnline) {
-      setTxStatus("failed");
-      setErrorMessage("No internet connection. Reconnect and try again.");
-      return;
-    }
-
-    setTxStatus("pending");
-
-    setTimeout(() => {
-      setTxStatus("submitting");
-
-      setTimeout(() => {
-        setTxStatus("processing");
-
-        setTimeout(() => {
-          const isSuccess = Math.random() > 0.1; // Slightly better success rate for batches
-
-          if (isSuccess) {
-            const mockHash = "mock_tx_" + Math.random().toString(36).substring(7);
-            setTxHash(mockHash);
-            setTxStatus("success");
-
-            if (batch.length > 0) {
-              toast.success("Batch Successful!", {
-                description: `Executed ${batch.length} swaps in one atomic transaction.`,
-              });
-              
-              // Clear batch on success
-              setBatch([]);
-            } else {
-              const fromAmt = parseResult.status === "ok" ? parseResult.normalized : "0";
-              const toAmt = quote?.total ?? "0";
-              toast.success("Transaction Successful!", {
-                description: `Swapped ${fromAmt} ${selectedPair?.base ?? ""} for ${toAmt} ${selectedPair?.counter ?? ""}`,
-              });
-            }
-          } else {
-            setTxStatus("failed");
-            setErrorMessage("Atomic batch failed. Please check liquidity or slippage and try again.");
-            toast.error("Transaction Failed");
-          }
-        }, 1500);
-      }, 800);
-    }, 1200);
-  };
-
-  const handleCancel = () => {
-    setTxStatus("review");
-  };
-
-  const receivePreview =
-    quote && parseResult.status === "ok" ? quote.total : "—";
-
-  const priceImpactDisplay =
-    quote?.price_impact != null ? `${quote.price_impact}%` : "—";
-
-  const slippageWarning = inputValidation.warnings.slippage;
-  const slippageError = inputValidation.fieldErrors.slippage;
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   return (
-    <Card className="mx-auto mt-8 max-w-lg border-primary/20 bg-background/50 p-6 shadow-lg backdrop-blur-sm">
-      <div className="space-y-4">
-        {isOffline && (
-          <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            You&apos;re offline. Quotes are paused and swap submission is disabled
-            until connection is restored.
-          </div>
-        )}
+    <div className="demo-swap" style={{ position: "relative", padding: "1rem" }}>
+      <label htmlFor="pair-select">Select Pair:</label>
+      <select id="pair-select" ref={pairSelectorRef} style={{ marginRight: "1rem" }}>
+        <option value="BTC/USD">BTC/USD</option>
+        <option value="ETH/USD">ETH/USD</option>
+      </select>
 
-        <div>
-          <h2 className="mb-1 text-xl font-bold">Swap Tokens</h2>
-          <p className="text-sm text-muted-foreground">
-            Demo swap with sell amount validation and debounced quotes
-          </p>
-        </div>
+      <button onClick={swapBaseQuote} style={{ marginRight: "0.5rem" }}>
+        Swap Base/Quote
+      </button>
+      <button onClick={refreshQuote}>Refresh Quote</button>
 
-        <div className="space-y-2">
-          <span className="text-sm font-medium">Pair</span>
-          {pairsLoading ? (
-            <Skeleton className="h-10 w-full rounded-md" />
-          ) : pairsError ? (
-            <p className="text-sm text-destructive">
-              Could not load pairs. Start the API to select a market.
-            </p>
-          ) : pairs && pairs.length > 0 ? (
-            <Select value={selectedKey} onValueChange={setSelectedKey}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select pair" />
-              </SelectTrigger>
-              <SelectContent>
-                {pairs.map((p) => (
-                  <SelectItem key={pairKey(p)} value={pairKey(p)}>
-                    {p.base} / {p.counter}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              No pairs from the indexer yet. You can still try amount validation
-              (sell asset defaults to native precision).
-            </p>
-          )}
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-sm font-medium">
-              Sell amount
-              {selectedPair ? ` (${selectedPair.base})` : " (XLM)"}
-            </span>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8"
-              disabled={!isConnected}
-              title={maxButtonTitle}
-              onClick={applyMax}
-            >
-              Max
-            </Button>
-          </div>
-
-          <Input
-            inputMode="decimal"
-            autoComplete="off"
-            placeholder="0.0"
-            value={sellRaw}
-            aria-invalid={amountInputInvalid}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSellRaw(e.target.value)}
-            className="text-lg font-medium"
-          />
-
-          <div className="min-h-[1.25rem] text-xs">
-            {parseResult.status === "precision_exceeded" && (
-              <span className="text-destructive">{parseResult.message}</span>
-            )}
-            {parseResult.status === "invalid" && (
-              <span className="text-destructive">{parseResult.message}</span>
-            )}
-            {parseResult.status === "ok" && (
-              <span className="text-muted-foreground">
-                Up to {sellMaxDecimals} decimals for this asset. Quotes update
-                after you stop typing.
-              </span>
-            )}
-            {parseResult.status === "empty" && sellRaw.trim() === "" && (
-              <span className="text-muted-foreground">
-                Paste amounts with US (1,234.56) or EU (1.234,56) grouping.
-                Scientific notation is not supported.
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div className="space-y-4 rounded-lg border bg-muted/20 p-4">
-          <div>
-            <span className="text-sm font-medium">Estimated receive</span>
-            <div className="mt-1 text-2xl font-bold text-success">
-              {quoteLoading && numericForQuote !== undefined ? (
-                <div className="flex items-center gap-2 h-8">
-                  <Skeleton className="h-7 w-32" />
-                </div>
-              ) : (
-                <>
-                  {receivePreview}
-                  {selectedPair ? ` ${selectedPair.counter}` : ""}
-                </>
-              )}
-            </div>
-            {quoteError && numericForQuote !== undefined && (
-              <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-destructive">
-                <p>Quote failed: {quoteError.message}</p>
-                {isRecovering && (
-                  <p className="text-muted-foreground">
-                    Network looks unstable. Retrying automatically (attempt {retryAttempt}).
-                  </p>
-                )}
-                {isOnline && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => refresh()}
-                    disabled={quoteLoading || manualRefreshCoolingDown}
-                    className="h-6 px-2 text-xs"
-                  >
-                    Retry now
-                  </Button>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div>
-            <span className="text-sm font-medium text-muted-foreground">
-              Reference price
-            </span>
-            <div className="mt-1 flex items-center gap-2 text-sm">
-              <span>{quote?.price ?? "—"}</span>
-              {isStale && (
-                <span className="inline-flex items-center rounded-md bg-yellow-400/10 px-2 py-1 text-xs font-medium text-yellow-500 ring-1 ring-inset ring-yellow-400/20">
-                  Stale
-                </span>
-              )}
-            </div>
-          </div>
-
-          <div className="flex justify-between text-sm">
-            <span>
-              Price impact{" "}
-              <span title="How much this trade moves the quoted market price">
-                ⓘ
-              </span>
-            </span>
-            <span>{priceImpactDisplay}</span>
-          </div>
-
-          <div className="space-y-2">
-            <span className="text-sm font-medium">Slippage tolerance</span>
-
-            <div className="flex gap-2">
-              {[0.1, 0.5, 1].map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => setSlippage(preset)}
-                  className={`rounded-md border px-3 py-1 text-sm ${slippage === preset ? "bg-primary text-primary-foreground" : ""
-                    }`}
-                >
-                  {preset}%
-                </button>
-              ))}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Input
-                type="number"
-                min={0}
-                max={50}
-                step="0.1"
-                value={slippage ?? ""}
-                onChange={(e) => {
-                  const raw = e.target.value;
-                  if (raw === "") {
-                    setSlippage(null);
-                    return;
-                  }
-
-                  const val = Number(raw);
-                  if (Number.isNaN(val)) {
-                    setSlippage(null);
-                    return;
-                  }
-
-                  setSlippage(val);
-                }}
-                placeholder="Custom %"
-                className="w-24"
-              />
-              <span className="text-sm">%</span>
-            </div>
-
-            {slippageError && (
-              <p className="text-xs text-destructive">
-                {slippageError}
-              </p>
-            )}
-
-            {!slippageError && slippageWarning && (
-              <p className="text-xs text-yellow-500">{slippageWarning}</p>
-            )}
-          </div>
-
-        {numericForQuote && (
-          <TradeRouteDisplay 
-            quote={quote || null} 
-            isLoading={quoteLoading} 
-            error={quoteError?.message}
-          />
-        )}
-
-          <div className="flex flex-wrap items-center gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={refreshDisabled}
-              onClick={() => refresh()}
-              className="gap-2"
-            >
-              {quoteLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-              ) : (
-                <RefreshCw className="h-4 w-4" aria-hidden />
-              )}
-              {quoteError ? "Retry quote" : "Refresh quote"}
-            </Button>
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-input"
-                checked={autoRefreshEnabled}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAutoRefreshEnabled(e.target.checked)}
-              />
-              Auto-refresh (~{Math.round(QUOTE_AUTO_REFRESH_INTERVAL_MS / 1000)}s,
-              pauses when tab hidden)
-            </label>
-          </div>
-        </div>
-
-        <Button
-          className="h-12 w-full text-lg"
-          onClick={handleSwapClick}
-          disabled={
-            !isOnline ||
-            !submitValidation.isValid
-          }
-        >
-          Review Swap
-        </Button>
+      {/* Tooltip / help icon */}
+      <div
+        className="shortcut-tooltip"
+        style={{ position: "absolute", top: 0, right: 0, cursor: "help" }}
+        title="Keyboard Shortcuts: Ctrl+F → Focus Pair, Ctrl+S → Swap Base/Quote, Ctrl+R → Refresh Quote"
+      >
+        ⌨️
       </div>
-
-      <TransactionConfirmationModal
-        isOpen={isModalOpen}
-        onOpenChange={setIsModalOpen}
-        fromAsset={selectedPair?.base ?? "XLM"}
-        fromAmount={
-          parseResult.status === "ok" ? parseResult.normalized : sellRaw || "0"
-        }
-        toAsset={selectedPair?.counter ?? "USDC"}
-        toAmount={quote?.total ?? "—"}
-        exchangeRate={quote?.price ?? "—"}
-        priceImpact="0.1%"
-        slippageTolerancePct={settings.slippageTolerance}
-        networkFee="0.00001"
-        routePath={quote?.path?.length ? quote.path : mockRoute}
-        swaps={batch}
-        onConfirm={handleConfirm}
-        onCancel={handleCancel}
-        confirmDisabled={isOffline}
-        confirmDisabledReason={
-          isOffline
-            ? "Reconnect to the internet before confirming this swap."
-            : undefined
-        }
-        status={txStatus}
-        errorMessage={errorMessage}
-        txHash={txHash}
-      />
-    </Card>
+    </div>
   );
 }
