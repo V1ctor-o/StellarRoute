@@ -109,6 +109,30 @@ Run tests with:
 npm test TokenPairSelector
 ```
 
+## Feature Flags
+
+Experimental swap UI can be toggled without changing component code:
+
+- `NEXT_PUBLIC_FEATURE_ROUTES_BETA=true` enables the beta route panel at build time
+- flags default to `false` unless explicitly enabled
+- maintainers can also inject runtime flags by setting `window.__STELLAR_ROUTE_FLAGS__`
+
+Example runtime override pattern:
+
+```html
+<script>
+  window.__STELLAR_ROUTE_FLAGS__ = {
+    routesBeta: true,
+  };
+</script>
+```
+
+Current flags:
+
+| Flag | Default | Gated UI |
+|------|---------|----------|
+| `routesBeta` | `false` | `RouteDisplay` in the swap flow |
+
 ## Design Decisions
 
 1. **Two-Step Selection**: Users select base first, then quote. This ensures only valid pairs can be selected.

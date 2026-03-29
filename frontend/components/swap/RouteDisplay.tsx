@@ -2,6 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowRight, ArrowDown, Info, ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { useFeatureFlag } from "@/hooks/useFeatureFlag";
 import { ConfidenceIndicator } from "./ConfidenceIndicator";
 import { RouteDisplaySkeleton } from "./RouteDisplaySkeleton";
 
@@ -21,7 +22,12 @@ export function RouteDisplay({
   volatility = "low",
   isLoading = false,
 }: RouteDisplayProps) {
+  const routesBetaEnabled = useFeatureFlag("routesBeta");
   const [showDetails, setShowDetails] = useState(false);
+
+  if (!routesBetaEnabled) {
+    return null;
+  }
 
   if (isLoading) {
     return <RouteDisplaySkeleton />;

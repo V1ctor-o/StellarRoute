@@ -1,10 +1,39 @@
-import { render, screen } from "@testing-library/react";
 import { cleanup } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { RouteDisplay } from "./RouteDisplay";
 
 describe("RouteDisplay", () => {
-  afterEach(() => cleanup());
+  beforeEach(() => {
+    (
+      window as Window & {
+        __STELLAR_ROUTE_FLAGS__?: { routesBeta?: boolean };
+      }
+    ).__STELLAR_ROUTE_FLAGS__ = { routesBeta: true };
+  });
+
+  afterEach(() => {
+    cleanup();
+    delete (
+      window as Window & {
+        __STELLAR_ROUTE_FLAGS__?: unknown;
+      }
+    ).__STELLAR_ROUTE_FLAGS__;
+    delete process.env.NEXT_PUBLIC_FEATURE_ROUTES_BETA;
+  });
+
+  it("does not render the experimental route panel when the flag is off", () => {
+    (
+      window as Window & {
+        __STELLAR_ROUTE_FLAGS__?: { routesBeta?: boolean };
+      }
+    ).__STELLAR_ROUTE_FLAGS__ = { routesBeta: false };
+
+    const { container } = render(<RouteDisplay amountOut="50.0" isLoading={false} />);
+
+    expect(screen.queryByText("Best Route")).toBeNull();
+    expect(container.firstChild).toBeNull();
+  });
 
   it("should render loading skeleton when isLoading is true", () => {
     render(
