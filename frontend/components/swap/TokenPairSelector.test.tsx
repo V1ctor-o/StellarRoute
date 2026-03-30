@@ -230,9 +230,9 @@ describe("TokenPairSelector", () => {
     expect(screen.getByText("API connection failed")).toBeDefined();
   });
 
-  it("renders skeletons and disables swap button when loading", () => {
+  it("disables buttons when loading", () => {
     const onPairChange = vi.fn();
-    const { container } = render(
+    render(
       <TokenPairSelector
         pairs={mockPairs}
         onPairChange={onPairChange}
@@ -240,8 +240,7 @@ describe("TokenPairSelector", () => {
       />
     );
 
-    const skeletons = container.querySelectorAll(".animate-pulse");
-    expect(skeletons.length).toBeGreaterThan(0);
+    expect(document.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(2);
 
     const swapButton = screen.getByTitle("Swap base and quote assets");
     expect(swapButton).toHaveProperty("disabled", true);
