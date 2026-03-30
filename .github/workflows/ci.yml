@@ -177,6 +177,9 @@ jobs:
       - name: Unit tests
         run: npm test
 
+      - name: Run component stories (Ladle)
+        run: npm run storybook:ci
+
       - name: Production build
         run: npm run build
 
