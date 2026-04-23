@@ -1,20 +1,20 @@
 use crate::errors::ContractError;
 use crate::events;
 use crate::storage::{
-    self, batch_check_pools, extend_instance_ttl, get_fee_rate, get_instance_config,
-    increment_nonce, transfer_asset, StorageKey,
+    self, batch_check_pools, extend_instance_ttl, get_fee_rate, increment_nonce, transfer_asset,
+    StorageKey, INSTANCE_TTL_EXTEND_TO, INSTANCE_TTL_THRESHOLD, POOL_TTL_EXTEND_TO,
+    POOL_TTL_THRESHOLD,
 };
 use crate::types::{
     CommitmentData, ContractVersion, DistributionRecord, FeeConfig, GovernanceConfig, MevConfig,
-    Proposal, ProposalAction, QuoteResult, Route, SwapParams, SwapResult, TokenCategory, TokenInfo,
+    Proposal, ProposalAction, QuoteResult, Route, SwapParams, SwapResult, TTLStatus,
+    TokenCategory, TokenInfo,
 };
 use crate::{governance, tokens, upgrade};
 use soroban_sdk::{
     contract, contractimpl, contracttype, symbol_short, vec, Address, Bytes, BytesN, Env, IntoVal,
     Symbol, Vec,
 };
-use crate::types::{QuoteResult, Route, SwapParams, SwapResult, TTLStatus};
-use soroban_sdk::{contract, contractimpl, symbol_short, vec, Address, Env, IntoVal, Symbol};
 
 const MAX_HOPS: u32 = 4;
 const BASE_CPU_PER_HOP: u64 = 5_000_000;

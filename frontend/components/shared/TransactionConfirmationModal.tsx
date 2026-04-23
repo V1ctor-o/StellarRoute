@@ -9,7 +9,12 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { PathStep } from "@/types";
-import { TransactionStatus } from "@/types/transaction";
+import {
+  TransactionStatus,
+  TransactionTimelineEvent,
+  TimelineEventState,
+  TimelinePhase,
+} from "@/types/transaction";
 import {
   ArrowDown,
   CheckCircle2,
@@ -18,7 +23,216 @@ import {
   Wallet,
   ExternalLink,
   ChevronRight,
+  Clock3,
+  ShieldCheck,
 } from "lucide-react";
+
+interface TransactionTimelineLocale {
+  timelineLabel: string;
+  timelineDescription: string;
+  phaseLabel: Record<TimelinePhase, string>;
+  stateLabel: Record<TimelineEventState, string>;
+  sourceLabel: {
+    wallet: string;
+    api: string;
+    chain: string;
+  };
+  titleMap: Record<string, string>;
+  descriptionMap: Record<string, string>;
+  details: {
+    walletRequestId: string;
+    apiRequestId: string;
+    txHash: string;
+    replacedTxHash: string;
+    attempt: string;
+  };
+}
+
+const DEFAULT_LOCALE: TransactionTimelineLocale = {
+  timelineLabel: "Transaction timeline",
+  timelineDescription:
+    "Live transaction lifecycle from wallet signature to chain finality.",
+  phaseLabel: {
+    signature: "Wallet Signature",
+    submit: "API Submission",
+    inclusion: "Chain Inclusion",
+    finality: "Finality",
+  },
+  stateLabel: {
+    active: "In progress",
+    success: "Completed",
+    failed: "Failed",
+    retrying: "Retrying",
+  },
+  sourceLabel: {
+    wallet: "Wallet",
+    api: "API",
+    chain: "Chain",
+  },
+  titleMap: {
+    "timeline.signature.requested": "Awaiting wallet approval",
+    "timeline.signature.approved": "Wallet signature approved",
+    "timeline.submit.requested": "Submitting transaction request",
+    "timeline.submit.retry": "Submission retry in progress",
+    "timeline.submit.accepted": "Submission accepted",
+    "timeline.submit.replaced": "Replacement transaction submitted",
+    "timeline.inclusion.pending": "Waiting for block inclusion",
+    "timeline.inclusion.confirmed": "Transaction included on-chain",
+    "timeline.finality.pending": "Awaiting finality confirmations",
+    "timeline.finality.confirmed": "Transaction reached finality",
+    "timeline.finality.failed": "Finality failed",
+  },
+  descriptionMap: {
+    "timeline.signature.requested": "Confirm this swap in your wallet to continue.",
+    "timeline.submit.requested": "Forwarding the signed payload to the API service.",
+    "timeline.submit.retry": "A transient error occurred, automatically retrying submission.",
+    "timeline.submit.replaced": "Replacement strategy produced a new transaction hash.",
+    "timeline.inclusion.pending": "Broadcast complete, waiting for ledger inclusion.",
+    "timeline.finality.pending": "Waiting for final confirmations before settlement.",
+    "timeline.finality.failed": "Transaction did not finalize. You may retry safely.",
+  },
+  details: {
+    walletRequestId: "Wallet Request",
+    apiRequestId: "API Request",
+    txHash: "Tx Hash",
+    replacedTxHash: "Replaces",
+    attempt: "Attempt",
+  },
+};
+
+const PHASE_ORDER: TimelinePhase[] = [
+  "signature",
+  "submit",
+  "inclusion",
+  "finality",
+];
+
+const STATE_CLASS: Record<TimelineEventState, string> = {
+  active: "text-primary",
+  success: "text-success",
+  failed: "text-destructive",
+  retrying: "text-amber-500",
+};
+
+function resolveCopy(
+  locale: TransactionTimelineLocale,
+  key: string,
+  fallback: string,
+): string {
+  return locale.titleMap[key] ?? locale.descriptionMap[key] ?? fallback;
+}
+
+function renderTimelineSection(
+  locale: TransactionTimelineLocale,
+  phaseSnapshots: Array<{
+    phase: TimelinePhase;
+    latest?: TransactionTimelineEvent;
+    events: TransactionTimelineEvent[];
+  }>,
+) {
+  return (
+    <section
+      aria-label={locale.timelineLabel}
+      aria-live="polite"
+      className="rounded-lg border bg-muted/20 p-3 text-left"
+    >
+      <p className="text-sm font-medium">{locale.timelineLabel}</p>
+      <p className="text-xs text-muted-foreground mt-1">
+        {locale.timelineDescription}
+      </p>
+
+      <ol className="mt-4 space-y-3" role="list">
+        {phaseSnapshots.map(({ phase, latest, events }) => {
+          const state: TimelineEventState = latest?.state ?? "active";
+          const icon =
+            phase === "signature" ? (
+              <Wallet className="w-4 h-4" aria-hidden="true" />
+            ) : phase === "finality" ? (
+              <ShieldCheck className="w-4 h-4" aria-hidden="true" />
+            ) : (
+              <Clock3 className="w-4 h-4" aria-hidden="true" />
+            );
+
+          return (
+            <li key={phase} className="text-sm">
+              <div className="flex items-start gap-3">
+                <span className={STATE_CLASS[state]}>{icon}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium">{locale.phaseLabel[phase]}</span>
+                    <span className={`text-xs ${STATE_CLASS[state]}`}>
+                      {locale.stateLabel[state]}
+                    </span>
+                  </div>
+
+                  {latest && (
+                    <>
+                      <p className="text-xs mt-1">
+                        {resolveCopy(locale, latest.titleKey, latest.titleKey)}
+                      </p>
+                      {latest.descriptionKey && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {resolveCopy(
+                            locale,
+                            latest.descriptionKey,
+                            latest.descriptionKey,
+                          )}
+                        </p>
+                      )}
+
+                      <div className="mt-2 grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+                        <span>{locale.details.attempt}</span>
+                        <span className="font-mono">{latest.attempt}</span>
+
+                        <span>{locale.details.walletRequestId}</span>
+                        <span className="font-mono truncate">
+                          {latest.correlation.walletRequestId}
+                        </span>
+
+                        {latest.correlation.apiRequestId && (
+                          <>
+                            <span>{locale.details.apiRequestId}</span>
+                            <span className="font-mono truncate">
+                              {latest.correlation.apiRequestId}
+                            </span>
+                          </>
+                        )}
+
+                        {(latest.txHash ?? latest.correlation.txHash) && (
+                          <>
+                            <span>{locale.details.txHash}</span>
+                            <span className="font-mono truncate">
+                              {latest.txHash ?? latest.correlation.txHash}
+                            </span>
+                          </>
+                        )}
+
+                        {latest.replacedTxHash && (
+                          <>
+                            <span>{locale.details.replacedTxHash}</span>
+                            <span className="font-mono truncate">
+                              {latest.replacedTxHash}
+                            </span>
+                          </>
+                        )}
+                      </div>
+
+                      {events.length > 1 && (
+                        <p className="text-[11px] text-muted-foreground mt-2">
+                          {events.length} lifecycle updates recorded for this phase.
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  );
+}
 
 interface TransactionConfirmationModalProps {
   isOpen: boolean;
@@ -40,6 +254,8 @@ interface TransactionConfirmationModalProps {
   status: TransactionStatus | "review";
   errorMessage?: string;
   txHash?: string;
+  timelineEvents?: TransactionTimelineEvent[];
+  timelineLocale?: Partial<TransactionTimelineLocale>;
 }
 
 export function TransactionConfirmationModal({
@@ -59,8 +275,48 @@ export function TransactionConfirmationModal({
   status,
   errorMessage,
   txHash,
+  timelineEvents = [],
+  timelineLocale,
 }: TransactionConfirmationModalProps) {
   const [countdown, setCountdown] = useState(15);
+  const locale: TransactionTimelineLocale = {
+    ...DEFAULT_LOCALE,
+    ...timelineLocale,
+    phaseLabel: {
+      ...DEFAULT_LOCALE.phaseLabel,
+      ...(timelineLocale?.phaseLabel ?? {}),
+    },
+    stateLabel: {
+      ...DEFAULT_LOCALE.stateLabel,
+      ...(timelineLocale?.stateLabel ?? {}),
+    },
+    sourceLabel: {
+      ...DEFAULT_LOCALE.sourceLabel,
+      ...(timelineLocale?.sourceLabel ?? {}),
+    },
+    titleMap: {
+      ...DEFAULT_LOCALE.titleMap,
+      ...(timelineLocale?.titleMap ?? {}),
+    },
+    descriptionMap: {
+      ...DEFAULT_LOCALE.descriptionMap,
+      ...(timelineLocale?.descriptionMap ?? {}),
+    },
+    details: {
+      ...DEFAULT_LOCALE.details,
+      ...(timelineLocale?.details ?? {}),
+    },
+  };
+
+  const phaseSnapshots = PHASE_ORDER.map((phase) => {
+    const events = timelineEvents.filter((event) => event.phase === phase);
+    const latest = events[events.length - 1];
+    return {
+      phase,
+      latest,
+      events,
+    };
+  });
 
   // Auto-refresh mock timer during review state
   useEffect(() => {
@@ -213,16 +469,20 @@ export function TransactionConfirmationModal({
 
         {/* SUBMITTING / PROCESSING STATE */}
         {(status === "submitting" || status === "processing") && (
-          <div className="py-12 flex flex-col items-center justify-center space-y-4 text-center">
-            <Loader2 className="w-16 h-16 text-primary animate-spin" />
-            <div>
-              <DialogTitle className="text-xl mb-2">
-                {status === "submitting" ? "Submitting..." : "Processing..."}
-              </DialogTitle>
-              <DialogDescription>
-                Waiting for network confirmation. This should only take a few seconds.
-              </DialogDescription>
+          <div className="py-8 space-y-5">
+            <div className="flex flex-col items-center justify-center space-y-3 text-center">
+              <Loader2 className="w-12 h-12 text-primary animate-spin" />
+              <div>
+                <DialogTitle className="text-xl mb-2">
+                  {status === "submitting" ? "Submitting..." : "Processing..."}
+                </DialogTitle>
+                <DialogDescription>
+                  Waiting for network confirmation. This should only take a few seconds.
+                </DialogDescription>
+              </div>
             </div>
+
+            {renderTimelineSection(locale, phaseSnapshots)}
           </div>
         )}
 
@@ -253,6 +513,8 @@ export function TransactionConfirmationModal({
               </a>
             )}
 
+            <div className="w-full">{renderTimelineSection(locale, phaseSnapshots)}</div>
+
             <Button onClick={() => handleOpenChange(false)} className="w-full mt-4">
               Done
             </Button>
@@ -271,6 +533,8 @@ export function TransactionConfirmationModal({
                 {errorMessage || "An unknown error occurred while processing your transaction."}
               </DialogDescription>
             </div>
+
+            <div className="w-full">{renderTimelineSection(locale, phaseSnapshots)}</div>
             
             <div className="w-full space-y-2 mt-4">
               <Button onClick={() => handleOpenChange(false)} className="w-full" variant="outline">

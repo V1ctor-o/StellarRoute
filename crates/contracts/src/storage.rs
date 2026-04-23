@@ -10,16 +10,27 @@ pub enum StorageKey {
     FeeRate,
     FeeTo,
     Paused,
+    IsMultiSig,
+    Governance,
+    Guardian,
+    ProposalCounter,
     SupportedPool(Address),
+    ProposalEntry(u64),
     PoolCount,
     SwapNonce(Address),
     // ── Persistent ─────────────────────────────────────────────────────
     TotalSwapVolume,
+    ContractVersionKey,
+    VersionHistory(u64),
+    MigrationDone(u32, u32, u32),
+    AllowedToken(Asset),
     // ── Instance — TTL tracking ────────────────────────────────────────
     PoolList,
     LastTtlExtension,
+    TokenCount,
+    MevConfig,
     // ── Temporary (auto-expiring) ──────────────────────────────────────
-    PendingUpgrade,
+    PendingUpgradeKey,
     Commitment(BytesN<32>),
     AccountSwapCount(Address),
     AccountSwapWindowStart(Address),
@@ -153,6 +164,17 @@ pub fn is_supported_pool(e: &Env, pool: Address) -> bool {
     e.storage()
         .persistent()
         .has(&StorageKey::SupportedPool(pool))
+}
+
+pub fn batch_check_pools(e: &Env, pools: &Vec<Address>) -> bool {
+    for i in 0..pools.len() {
+        let pool = pools.get(i).unwrap();
+        if !is_supported_pool(e, pool) {
+            return false;
+        }
+    }
+
+    true
 }
 
 /// Get the list of all registered pool addresses (for TTL enumeration).

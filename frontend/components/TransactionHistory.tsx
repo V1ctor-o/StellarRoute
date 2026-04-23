@@ -55,6 +55,20 @@ export function TransactionHistory() {
     }
   }
 
+  const getLifecycleMeta = (tx: TransactionRecord) => {
+    const retries = tx.retryCount ?? 0
+    const replacements = tx.replacementCount ?? 0
+
+    if (retries === 0 && replacements === 0) {
+      return "No retries"
+    }
+
+    const retryLabel = retries === 1 ? "retry" : "retries"
+    const replacementLabel = replacements === 1 ? "replacement" : "replacements"
+
+    return `${retries} ${retryLabel}, ${replacements} ${replacementLabel}`
+  }
+
   return (
     <Card className="flex flex-col h-[calc(100vh-140px)] m-4 shadow-sm border-primary/10">
       <div className="p-4 border-b flex flex-col sm:flex-row justify-between items-center gap-4 bg-muted/30">
@@ -110,6 +124,7 @@ export function TransactionHistory() {
                 <TableHead>Swap</TableHead>
                 <TableHead>Rate</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Lifecycle</TableHead>
                 <TableHead className="text-right">Explorer</TableHead>
               </TableRow>
             </TableHeader>
@@ -147,6 +162,14 @@ export function TransactionHistory() {
                         {tx.errorMessage}
                       </div>
                     )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-xs">
+                      <div>{getLifecycleMeta(tx)}</div>
+                      <div className="text-muted-foreground font-mono truncate max-w-[180px]" title={tx.correlation?.walletRequestId}>
+                        {tx.correlation?.walletRequestId || "-"}
+                      </div>
+                    </div>
                   </TableCell>
                   <TableCell className="text-right">
                     {tx.hash ? (
