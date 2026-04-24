@@ -94,18 +94,18 @@ impl Default for EndpointConfig {
                 max_requests: std::env::var("RATE_LIMIT_ORDERBOOK")
                     .ok()
                     .and_then(|v| v.parse().ok())
-                    .unwrap_or(30),
+                    .unwrap_or(60), // Increased from 30
                 window,
             },
             quote: RateLimitConfig {
                 max_requests: std::env::var("RATE_LIMIT_QUOTE")
                     .ok()
                     .and_then(|v| v.parse().ok())
-                    .unwrap_or(100),
+                    .unwrap_or(20), // Protected: lowered from 100
                 window,
             },
             default: RateLimitConfig {
-                max_requests: 200,
+                max_requests: 120, // Lowered from 200
                 window,
             },
             tenant_overrides: HashMap::new(),
@@ -531,26 +531,19 @@ mod tests {
 
         let cfg = EndpointConfig::default();
         assert_eq!(cfg.pairs.max_requests, 60);
-        assert_eq!(cfg.orderbook.max_requests, 30);
-        assert_eq!(cfg.quote.max_requests, 100);
-        assert_eq!(cfg.default.max_requests, 200);
+        assert_eq!(cfg.orderbook.max_requests, 60);
+        assert_eq!(cfg.quote.max_requests, 20);
+        assert_eq!(cfg.default.max_requests, 120);
     }
 
     #[test]
     fn endpoint_config_selects_correct_limit() {
         let cfg = EndpointConfig::default();
         assert_eq!(cfg.for_path("/api/v1/pairs", None).max_requests, 60);
-        assert_eq!(
-            cfg.for_path("/api/v1/orderbook/XLM/USDC", None)
-                .max_requests,
-            30
-        );
-        assert_eq!(
-            cfg.for_path("/api/v1/quote/XLM/USDC", None).max_requests,
-            100
-        );
-        assert_eq!(cfg.for_path("/health", None).max_requests, 200);
-        assert_eq!(cfg.for_path("/swagger-ui", None).max_requests, 200);
+        assert_eq!(cfg.for_path("/api/v1/orderbook/XLM/USDC", None).max_requests, 60);
+        assert_eq!(cfg.for_path("/api/v1/quote/XLM/USDC", None).max_requests, 20);
+        assert_eq!(cfg.for_path("/health", None).max_requests, 120);
+        assert_eq!(cfg.for_path("/swagger-ui", None).max_requests, 120);
     }
 
     #[test]
@@ -688,8 +681,8 @@ mod tests {
         );
 
         // Path-based remains the same for others
-        assert_eq!(cfg.for_path("/api/v1/quote", None).max_requests, 100);
-
+        assert_eq!(cfg.for_path("/api/v1/quote", None).max_requests, 20);
+        
         // Override applied for the specific tenant
         assert_eq!(
             cfg.for_path("/api/v1/quote", Some(tenant_id)).max_requests,

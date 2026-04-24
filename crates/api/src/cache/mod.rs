@@ -245,7 +245,8 @@ pub mod keys {
         format!("orderbook:{}:{}", base, quote)
     }
 
-    /// Cache key for quote (versioned: v1)
+    /// Cache key for quote (versioned: v2)
+    /// Normalizes assets and amounts for deterministic lookups.
     pub fn quote(
         base: &str,
         quote: &str,
@@ -254,20 +255,42 @@ pub mod keys {
         quote_type: &str,
         explain: bool,
     ) -> String {
+        let norm_base = normalize_asset(base);
+        let norm_quote = normalize_asset(quote);
+        let norm_amount = normalize_amount(amount);
+
         format!(
-            "quote:{}:{}:{}:{}:{}:{}",
-            base, quote, amount, slippage_bps, quote_type, explain
+            "v2:quote:{}:{}:{}:{}:{}:{}",
+            norm_base, norm_quote, norm_amount, slippage_bps, quote_type, explain
         )
+    }
+
+    /// Normalize asset identifiers (e.g. XLM/xlm -> native)
+    fn normalize_asset(asset: &str) -> String {
+        let asset = asset.to_lowercase();
+        if asset == "xlm" || asset == "native" {
+            "native".to_string()
+        } else {
+            asset.to_uppercase()
+        }
+    }
+
+    /// Normalize amounts to a canonical string (7 decimal precision)
+    fn normalize_amount(amount: &str) -> String {
+        match amount.parse::<f64>() {
+            Ok(val) => format!("{:.7}", val),
+            Err(_) => amount.to_string(), // Fallback if invalid
+        }
     }
 
     /// Key used to track the latest liquidity revision observed for a pair
     pub fn liquidity_revision(base: &str, quote: &str) -> String {
-        format!("liquidity:revision:{}:{}", base, quote)
+        format!("liquidity:revision:{}:{}", normalize_asset(base), normalize_asset(quote))
     }
 
     /// Pattern that matches all cached quotes for a pair
     pub fn quote_pair_pattern(base: &str, quote: &str) -> String {
-        format!("*quote:{}:{}:*", base, quote)
+        format!("*quote:{}:{}:*", normalize_asset(base), normalize_asset(quote))
     }
 }
 
@@ -281,14 +304,26 @@ mod tests {
         assert_eq!(keys::pairs_list_page(25, 50), "pairs:list:25:50");
         assert_eq!(keys::orderbook("XLM", "USDC"), "orderbook:XLM:USDC");
         assert_eq!(
-            keys::quote("XLM", "USDC", "100", 50, "sell", true),
-            "quote:XLM:USDC:100:50:sell:true"
+            keys::quote("xlm", "usdc", "100.0", 50, "sell", true),
+            "v2:quote:native:USDC:100.0000000:50:sell:true"
         );
         assert_eq!(
-            keys::liquidity_revision("XLM", "USDC"),
-            "liquidity:revision:XLM:USDC"
+            keys::liquidity_revision("xlm", "USDC"),
+            "liquidity:revision:native:USDC"
         );
-        assert_eq!(keys::quote_pair_pattern("XLM", "USDC"), "*quote:XLM:USDC:*");
+        assert_eq!(keys::quote_pair_pattern("XLM", "usdc"), "*quote:native:USDC:*");
+    }
+
+    #[tokio::test]
+    async fn test_cache_normalization() {
+        // Equivalent inputs should map to same key
+        let key1 = keys::quote("XLM", "USDC", "100", 50, "sell", false);
+        let key2 = keys::quote("xlm", "usdc", "100.000", 50, "sell", false);
+        let key3 = keys::quote("native", "USDC", "100.0000000", 50, "sell", false);
+        
+        assert_eq!(key1, "v2:quote:native:USDC:100.0000000:50:sell:false");
+        assert_eq!(key1, key2);
+        assert_eq!(key2, key3);
     }
 
     #[tokio::test]
