@@ -214,19 +214,6 @@ impl LoadTestHarness {
 
                 for _ in 0..(config.total_requests / config.concurrent_users) {
                     ticker.tick().await;
-<<<<<<< fix/361-dependency-failure-simulation-suite-for-horizon-soroban-outages
-                    
-=======
-
-                    let (traffic_type, amount) = {
-                        let mut rng = rand::thread_rng();
-                        (
-                            select_traffic_type(&config.traffic_mix, &mut rng),
-                            generate_amount(&config.amount_distribution, &mut rng),
-                        )
-                    };
-
->>>>>>> main
                     let req_start = Instant::now();
 
                     // Simulate degradation
@@ -234,8 +221,7 @@ impl LoadTestHarness {
                         tokio::time::sleep(Duration::from_millis(config.degradation.db_latency_ms))
                             .await;
                     }
-<<<<<<< fix/361-dependency-failure-simulation-suite-for-horizon-soroban-outages
-                    
+
                     let (traffic_type, amount, failed_dependency) = {
                         let mut rng = rand::thread_rng();
                         let traffic_type = select_traffic_type(&config.traffic_mix, &mut rng);
@@ -246,16 +232,6 @@ impl LoadTestHarness {
                             && rng.gen::<f64>() < config.degradation.db_error_rate
                         {
                             failed_dependency = Some("database");
-=======
-
-                    let should_fail = {
-                        let mut rng = rand::thread_rng();
-                        let mut fail = false;
-                        if config.degradation.db_error_rate > 0.0
-                            && rng.gen::<f64>() < config.degradation.db_error_rate
-                        {
-                            fail = true;
->>>>>>> main
                         }
                         let horizon_error_rate = if config.degradation.horizon_error_rate > 0.0 {
                             config.degradation.horizon_error_rate
@@ -264,7 +240,6 @@ impl LoadTestHarness {
                         };
                         if horizon_error_rate > 0.0 && rng.gen::<f64>() < horizon_error_rate
                         {
-<<<<<<< fix/361-dependency-failure-simulation-suite-for-horizon-soroban-outages
                             failed_dependency = Some("horizon");
                         }
                         let soroban_error_rate = if config.degradation.soroban_error_rate > 0.0 {
@@ -276,11 +251,6 @@ impl LoadTestHarness {
                             failed_dependency = Some("soroban_rpc");
                         }
                         (traffic_type, amount, failed_dependency)
-=======
-                            fail = true;
-                        }
-                        fail
->>>>>>> main
                     };
 
                     let result = if let Some(dependency) = failed_dependency {
