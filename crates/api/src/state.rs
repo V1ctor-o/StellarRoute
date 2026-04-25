@@ -6,17 +6,13 @@ use std::{sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 
 use crate::cache::{CacheManager, SingleFlight};
-
 use crate::models::{QuoteResponse, RoutesResponse};
 use crate::replay::capture::CaptureHook;
 use crate::graph::GraphManager;
 use crate::routes::ws::WsState;
-use stellarroute_routing::health::circuit_breaker::CircuitBreakerRegistry;
+use stellarroute_routing::health::circuit_breaker::{CircuitBreakerRegistry, BreakerConfig};
 
 use crate::worker::{JobQueue, RouteWorkerPool, WorkerPoolConfig};
-use crate::replay::capture::CaptureHook;
-use crate::routes::ws::WsState;
-use stellarroute_routing::health::circuit_breaker::{CircuitBreakerRegistry, BreakerConfig};
 
 /// Cache policy configuration
 #[derive(Debug, Clone)]
@@ -60,12 +56,10 @@ impl CacheMetrics {
         self.quote_misses.fetch_add(1, Ordering::Relaxed);
     }
 
-    /// Increment the stale-quote-rejection counter by one.
     pub fn inc_stale_rejection(&self) {
         self.stale_quote_rejections.fetch_add(1, Ordering::Relaxed);
     }
 
-    /// Add `n` to the stale-inputs-excluded counter.
     pub fn add_stale_inputs_excluded(&self, n: u64) {
         self.stale_inputs_excluded.fetch_add(n, Ordering::Relaxed);
     }
@@ -88,36 +82,21 @@ impl CacheMetrics {
 /// Shared API state
 #[derive(Clone)]
 pub struct AppState {
-    /// Database connection pool
     pub db: PgPool,
-    /// Redis cache manager (optional)
     pub cache: Option<Arc<Mutex<CacheManager>>>,
-    /// API version
     pub version: String,
-    /// Cache policy settings
     pub cache_policy: CachePolicy,
-    /// Cache hit/miss counters
     pub cache_metrics: Arc<CacheMetrics>,
-    /// Route computation worker pool
     pub worker_pool: Arc<RouteWorkerPool>,
-    /// Single-flight manager for quotes to prevent stampedes
     pub quote_single_flight: Arc<SingleFlight<crate::error::Result<QuoteResponse>>>,
-
-    /// Optional replay capture hook (None when REPLAY_CAPTURE_ENABLED=false)
     pub replay_capture: Option<Arc<CaptureHook>>,
-
-    /// Single-flight manager for routes
     pub routes_single_flight: Arc<SingleFlight<crate::error::Result<RoutesResponse>>>,
-    /// Persistent background synced graph manager
     pub graph_manager: Arc<GraphManager>,
-    /// WebSocket shared state
     pub ws: Option<Arc<WsState>>,
-    /// Shared circuit breaker registry for liquidity providers
     pub circuit_breaker: Arc<CircuitBreakerRegistry>,
 }
 
 impl AppState {
-    /// Create new application state
     pub fn new(db: PgPool) -> Self {
         Self::new_with_policy(db, CachePolicy::default())
     }
@@ -134,9 +113,7 @@ impl AppState {
             cache_policy,
             cache_metrics: Arc::new(CacheMetrics::default()),
             worker_pool,
-            quote_single_flight: Arc::new(
-                SingleFlight::<crate::error::Result<QuoteResponse>>::new(),
-            ),
+            quote_single_flight: Arc::new(SingleFlight::new()),
             replay_capture: None,
             routes_single_flight: Arc::new(SingleFlight::new()),
             graph_manager,
@@ -145,7 +122,6 @@ impl AppState {
         }
     }
 
-    /// Create new application state with cache
     pub fn with_cache(db: PgPool, cache: CacheManager) -> Self {
         Self::with_cache_and_policy(db, cache, CachePolicy::default())
     }
@@ -166,9 +142,7 @@ impl AppState {
             cache_policy,
             cache_metrics: Arc::new(CacheMetrics::default()),
             worker_pool,
-            quote_single_flight: Arc::new(
-                SingleFlight::<crate::error::Result<QuoteResponse>>::new(),
-            ),
+            quote_single_flight: Arc::new(SingleFlight::new()),
             replay_capture: None,
             routes_single_flight: Arc::new(SingleFlight::new()),
             graph_manager,
@@ -177,32 +151,25 @@ impl AppState {
         }
     }
 
-    /// Create worker pool with configuration
     fn create_worker_pool(db: PgPool) -> Arc<RouteWorkerPool> {
         let queue = JobQueue::new(db);
         let config = WorkerPoolConfig::default();
         Arc::new(RouteWorkerPool::new(config, queue))
     }
 
-    /// Wrap in Arc for sharing across handlers
     pub fn into_arc(self) -> Arc<Self> {
         Arc::new(self)
     }
 
-    /// Check if caching is enabled
     pub fn has_cache(&self) -> bool {
         self.cache.is_some()
     }
 
-    /// Attach a replay capture hook to this state.
-    /// Returns a new `AppState` with the hook set.
     pub fn with_replay_capture(mut self, hook: CaptureHook) -> Self {
         self.replay_capture = Some(Arc::new(hook));
         self
     }
 
-    /// Attach WebSocket state to this state.
-    /// Returns a new `AppState` with the state set.
     pub fn with_ws(mut self, ws: Arc<WsState>) -> Self {
         self.ws = Some(ws);
         self

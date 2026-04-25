@@ -1,7 +1,7 @@
 //! Pathfinding algorithms for swap routing with N-hop support and safety bounds
 
 use crate::error::{Result, RoutingError};
-use crate::policy::RoutingPolicy;
+use crate::policy::{RouteDiagnostic, RoutingPolicy};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use tracing::instrument;
@@ -9,14 +9,13 @@ use tracing::instrument;
 /// Configuration for path discovery
 #[derive(Clone, Debug)]
 pub struct PathfinderConfig {
-    /// Minimum liquidity threshold for intermediate assets
     pub min_liquidity_threshold: i128,
 }
 
 impl Default for PathfinderConfig {
     fn default() -> Self {
         Self {
-            min_liquidity_threshold: 1_000_000, // 1 unit in e7
+            min_liquidity_threshold: 1_000_000,
         }
     }
 }
@@ -95,15 +94,52 @@ impl Pathfinder {
 
         let graph = self.build_graph(edges, policy)?;
 
-        let paths = self.bfs_paths(&graph, from, to, amount_in, policy.max_hops)?;
+        let raw_paths = self.bfs_paths(&graph, from, to, amount_in, policy.max_hops)?;
 
-        if paths.is_empty() {
+        if raw_paths.is_empty() {
             return Err(RoutingError::NoRoute(from.to_string(), to.to_string()));
         }
 
-        tracing::Span::current().record("route.paths_found", paths.len());
+        // 🔥 APPLY POLICY FILTER (CRITICAL REQUIREMENT)
+        let mut diagnostics: Vec<RouteDiagnostic> = Vec::new();
 
-        Ok(paths)
+        let filtered_paths: Vec<SwapPath> = raw_paths
+            .into_iter()
+            .enumerate()
+            .filter_map(|(idx, path)| {
+                // Convert PathHop -> RouteHop (policy-compatible)
+                let hops_for_policy = path
+                    .hops
+                    .iter()
+                    .map(|h| crate::policy::RouteHop {
+                        venue_type: h.venue_type.clone(),
+                        asset: h.destination_asset.clone(),
+                    })
+                    .collect::<Vec<_>>();
+
+                let route_id = format!("route_{}", idx);
+
+                if let Some(diag) = policy.should_exclude_route(&route_id, &hops_for_policy) {
+                    diagnostics.push(diag);
+                    None
+                } else {
+                    Some(path)
+                }
+            })
+            .collect();
+
+        // You could log diagnostics if needed (safe exposure)
+        if !diagnostics.is_empty() {
+            tracing::debug!(excluded_routes = diagnostics.len(), "routes excluded by policy");
+        }
+
+        if filtered_paths.is_empty() {
+            return Err(RoutingError::NoRoute(from.to_string(), to.to_string()));
+        }
+
+        tracing::Span::current().record("route.paths_found", filtered_paths.len());
+
+        Ok(filtered_paths)
     }
 
     fn build_graph(
@@ -114,13 +150,12 @@ impl Pathfinder {
         let mut graph: HashMap<String, Vec<LiquidityEdge>> = HashMap::new();
 
         for edge in edges {
-            // Apply venue type routing policy
             if !policy.is_venue_allowed(&edge.venue_type) {
                 continue;
             }
 
             if edge.liquidity < self.config.min_liquidity_threshold {
-                continue; // Skip low-liquidity edges
+                continue;
             }
 
             graph
@@ -143,18 +178,16 @@ impl Pathfinder {
         let mut paths = Vec::new();
         let mut queue = VecDeque::new();
 
-        // Initialize: (current_node, path_hops, visited_set, estimated_output)
         let mut initial_visited = std::collections::HashSet::new();
         initial_visited.insert(from.to_string());
+
         queue.push_back((from.to_string(), Vec::new(), initial_visited, amount_in));
 
         while let Some((current, path_hops, visited, estimated_output)) = queue.pop_front() {
-            // Enforce max depth from policy
             if path_hops.len() >= max_hops {
                 continue;
             }
 
-            // Found destination
             if current == to {
                 paths.push(SwapPath {
                     hops: path_hops.clone(),
@@ -163,10 +196,8 @@ impl Pathfinder {
                 continue;
             }
 
-            // Explore neighbors
             if let Some(neighbors) = graph.get(&current) {
                 for edge in neighbors {
-                    // Cycle prevention
                     if visited.contains(&edge.to) {
                         continue;
                     }
@@ -183,13 +214,17 @@ impl Pathfinder {
                         fee_bps: edge.fee_bps,
                     };
 
-                    // Simple output estimation (50bps slippage per hop)
                     let estimated_after_hop = (estimated_output * 9950) / 10000;
 
                     let mut new_hops = path_hops.clone();
                     new_hops.push(hop);
 
-                    queue.push_back((edge.to.clone(), new_hops, new_visited, estimated_after_hop));
+                    queue.push_back((
+                        edge.to.clone(),
+                        new_hops,
+                        new_visited,
+                        estimated_after_hop,
+                    ));
                 }
             }
         }
