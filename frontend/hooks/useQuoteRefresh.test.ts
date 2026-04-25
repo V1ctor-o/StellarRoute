@@ -92,8 +92,6 @@ describe("useQuoteRefresh retries", () => {
   });
 
   it("respects Retry-After before allowing another manual refresh on 429s", async () => {
-    vi.useFakeTimers();
-
     const getQuoteMock = vi.mocked(stellarRouteClient.getQuote);
     getQuoteMock
       .mockRejectedValueOnce(
@@ -102,7 +100,7 @@ describe("useQuoteRefresh retries", () => {
           "rate_limit_exceeded",
           "Too many requests",
           undefined,
-          5_000,
+          50,
         ),
       )
       .mockResolvedValueOnce(buildQuote("98.0"));
@@ -116,33 +114,28 @@ describe("useQuoteRefresh retries", () => {
       }),
     );
 
-    await act(async () => {
-      vi.advanceTimersByTime(1);
-      await Promise.resolve();
+    await waitFor(() => {
+      expect(result.current.error).toBeInstanceOf(StellarRouteApiError);
+      expect(result.current.rateLimitRemainingMs).toBeGreaterThan(0);
     });
-
-    expect(result.current.error).toBeInstanceOf(StellarRouteApiError);
-    expect(result.current.rateLimitRemainingMs).toBeGreaterThan(0);
 
     act(() => {
       result.current.refresh();
     });
     expect(getQuoteMock).toHaveBeenCalledTimes(1);
 
-    act(() => {
-      vi.advanceTimersByTime(5_000);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 70));
     });
 
     act(() => {
       result.current.refresh();
     });
 
-    await act(async () => {
-      await Promise.resolve();
+    await waitFor(() => {
+      expect(getQuoteMock).toHaveBeenCalledTimes(2);
+      expect(result.current.data?.total).toBe("98.0");
     });
-
-    expect(getQuoteMock).toHaveBeenCalledTimes(2);
-    expect(result.current.data?.total).toBe("98.0");
   });
 
   it("applies bounded exponential backoff with jitter and allows cancelling queued retries", async () => {
@@ -169,13 +162,11 @@ describe("useQuoteRefresh retries", () => {
     await act(async () => {
       vi.advanceTimersByTime(1);
       await Promise.resolve();
+      await Promise.resolve();
     });
 
-    await waitFor(() => {
-      expect(result.current.hasPendingRetry).toBe(true);
-      expect(result.current.retryAttempt).toBe(1);
-    });
-
+    expect(result.current.hasPendingRetry).toBe(true);
+    expect(result.current.retryAttempt).toBe(1);
     expect(telemetry).toHaveBeenCalledWith(
       expect.objectContaining({
         stage: "scheduled",
@@ -198,8 +189,9 @@ describe("useQuoteRefresh retries", () => {
       }),
     );
 
-    act(() => {
+    await act(async () => {
       vi.advanceTimersByTime(300);
+      await Promise.resolve();
     });
 
     expect(getQuoteMock).toHaveBeenCalledTimes(1);
