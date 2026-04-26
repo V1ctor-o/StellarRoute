@@ -3,6 +3,30 @@
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
+/// Standard API response envelope
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct ApiResponse<T> {
+    pub v: u8,
+    pub timestamp: i64,
+    pub request_id: String,
+    pub data: T,
+}
+
+impl<T> ApiResponse<T> {
+    pub fn new(data: T, request_id: impl Into<String>) -> Self {
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as i64;
+        Self {
+            v: 1,
+            timestamp,
+            request_id: request_id.into(),
+            data,
+        }
+    }
+}
+
 /// Per-component health status value
 pub type ComponentStatus = String;
 
@@ -195,10 +219,61 @@ pub struct QuoteResponse {
 /// Response for a batch quote request
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct BatchQuoteResponse {
-    /// Array of quotes in the same order as requested
-    pub quotes: Vec<QuoteResponse>,
-    /// Total number of quotes successfully fetched
+    /// Results in the same order as the request items.
+    pub results: Vec<BatchQuoteItemResult>,
+    /// Number of items that succeeded.
+    pub items_succeeded: usize,
+    /// Number of items that failed (per-item errors, not a batch-level failure).
+    pub items_failed: usize,
+    /// Total items in the batch.
     pub total: usize,
+    /// Unix timestamp (ms) of the shared market snapshot used for all items.
+    /// All quotes in this batch were computed against data no older than this.
+    pub snapshot_timestamp: i64,
+}
+
+/// Result for a single item in a batch quote response.
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct BatchQuoteItemResult {
+    /// Zero-based index of this item in the original request.
+    pub index: usize,
+    /// The quote, present when `status == "ok"`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quote: Option<QuoteResponse>,
+    /// Per-item error, present when `status == "error"`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<BatchItemError>,
+    /// `"ok"` or `"error"`.
+    pub status: String,
+}
+
+impl BatchQuoteItemResult {
+    pub fn ok(index: usize, quote: QuoteResponse) -> Self {
+        Self {
+            index,
+            quote: Some(quote),
+            error: None,
+            status: "ok".to_string(),
+        }
+    }
+
+    pub fn err(index: usize, error: BatchItemError) -> Self {
+        Self {
+            index,
+            quote: None,
+            error: Some(error),
+            status: "error".to_string(),
+        }
+    }
+}
+
+/// Per-item error detail in a batch response.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct BatchItemError {
+    /// Machine-readable error code.
+    pub code: String,
+    /// Human-readable description.
+    pub message: String,
 }
 
 /// Trading route response (path only, no pricing)
@@ -340,6 +415,7 @@ pub enum ExclusionReason {
     Override,
     StaleData,
     CircuitBreakerOpen,
+    LiquidityAnomaly,
 }
 
 /// Machine-readable error codes for API failures

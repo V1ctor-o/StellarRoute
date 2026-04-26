@@ -46,7 +46,7 @@ async fn test_validation_rejects_missing_amount() {
         .unwrap();
     let json: Value = serde_json::from_slice(&body).unwrap();
 
-    assert_eq!(json["error"], "invalid_amount");
+    assert_eq!(json["data"]["error"], "invalid_amount");
 }
 
 #[tokio::test]
@@ -69,7 +69,7 @@ async fn test_validation_rejects_zero_amount() {
         .unwrap();
     let json: Value = serde_json::from_slice(&body).unwrap();
 
-    assert_eq!(json["error"], "invalid_amount");
+    assert_eq!(json["data"]["error"], "invalid_amount");
 }
 
 #[tokio::test]
@@ -92,7 +92,7 @@ async fn test_validation_rejects_negative_amount() {
         .unwrap();
     let json: Value = serde_json::from_slice(&body).unwrap();
 
-    assert_eq!(json["error"], "invalid_amount");
+    assert_eq!(json["data"]["error"], "invalid_amount");
 }
 
 #[tokio::test]
@@ -115,7 +115,7 @@ async fn test_validation_rejects_excessive_slippage() {
         .unwrap();
     let json: Value = serde_json::from_slice(&body).unwrap();
 
-    assert_eq!(json["error"], "invalid_slippage");
+    assert_eq!(json["data"]["error"], "invalid_slippage");
 }
 
 #[tokio::test]
@@ -139,7 +139,7 @@ async fn test_validation_rejects_malformed_asset() {
         .unwrap();
     let json: Value = serde_json::from_slice(&body).unwrap();
 
-    assert_eq!(json["error"], "invalid_asset_format");
+    assert_eq!(json["data"]["error"], "invalid_asset_format");
 }
 
 #[tokio::test]
@@ -163,7 +163,7 @@ async fn test_validation_rejects_empty_asset() {
         .unwrap();
     let json: Value = serde_json::from_slice(&body).unwrap();
 
-    assert_eq!(json["error"], "invalid_asset_format");
+    assert_eq!(json["data"]["error"], "invalid_asset_format");
 }
 
 #[tokio::test]
@@ -186,5 +186,5 @@ async fn test_validation_applies_to_route_endpoint() {
         .unwrap();
     let json: Value = serde_json::from_slice(&body).unwrap();
 
-    assert_eq!(json["error"], "invalid_amount");
+    assert_eq!(json["data"]["error"], "invalid_amount");
 }

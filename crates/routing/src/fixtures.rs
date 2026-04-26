@@ -305,6 +305,8 @@ impl FixtureBuilder {
             let price: f64 = offer.price.parse().unwrap_or(1.0);
             let liquidity = parse_amount_to_e7(&offer.amount);
             edges.push(LiquidityEdge {
+                anomaly_score: 0.0,
+                anomaly_reasons: vec![],
                 from: offer.selling_asset.key.clone(),
                 to: offer.buying_asset.key.clone(),
                 venue_type: "sdex".to_string(),
@@ -331,6 +333,8 @@ impl FixtureBuilder {
 
             // Forward direction
             edges.push(LiquidityEdge {
+                anomaly_score: 0.0,
+                anomaly_reasons: vec![],
                 from: pool.selling_asset.key.clone(),
                 to: pool.buying_asset.key.clone(),
                 venue_type: "amm".to_string(),
@@ -342,6 +346,8 @@ impl FixtureBuilder {
 
             // Reverse direction (AMM pools are symmetric)
             edges.push(LiquidityEdge {
+                anomaly_score: 0.0,
+                anomaly_reasons: vec![],
                 from: pool.buying_asset.key.clone(),
                 to: pool.selling_asset.key.clone(),
                 venue_type: "amm".to_string(),
